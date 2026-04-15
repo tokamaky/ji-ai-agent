@@ -31,3 +31,6 @@ knife4j:
   enable: true
   setting:
     language:en-US
+logging:
+  level:
+    org.springframework.ai: DEBUG

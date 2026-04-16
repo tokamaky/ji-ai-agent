@@ -26,6 +26,16 @@ public class LoveApp {
             "引导用户详述事情经过、对方反应及自身想法，以便给出专属解决方案。";
 
     public LoveApp(ChatModel chatModel) {
+        //        // 初始化基于文件的对话记忆
+//        String fileDir = System.getProperty("user.dir") + "/tmp/chat-memory";
+//        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
+        // 初始化基于内存的对话记忆
+//        String apiKey = System.getenv("API_KEY");
+//        log.info("========== API_KEY length: {}", apiKey != null ? apiKey.length() : "null");
+//        log.info("========== API_KEY value: [{}]", apiKey);
+//        log.info("========== API_KEY hex: {}", apiKey != null ?
+//                apiKey.chars().mapToObj(c -> String.format("%02x", c)).collect(java.util.stream.Collectors.joining(" ")) : "null");
+//         原有代码保持不变...
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
                 .chatMemoryRepository(new InMemoryChatMemoryRepository())
                 .maxMessages(20)

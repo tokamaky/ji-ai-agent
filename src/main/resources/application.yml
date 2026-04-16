@@ -2,14 +2,15 @@ spring:
   application:
     name: ji-ai-agent
   ai:
-    openai:
-      api-key: ${API_KEY}
-      chat:
-        base-url: https://generativelanguage.googleapis.com
-        completions-path: /v1beta/openai/chat/completions
-        options:
-          model: gemini-2.0-flash-lite
-
+    vertex:
+      ai:
+        gemini:
+          project-id: ji-ai-agent
+          location: us-central1
+          chat:
+            options:
+              model:  gemini-2.5-flash-lite
+              temperature: 0.7
 server:
   port: 8123
   servlet:

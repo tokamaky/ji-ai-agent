@@ -17,6 +17,18 @@ spring:
           text:
             options:
               model: text-embedding-005
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        dimensions: 768
+        distance-type: COSINE_DISTANCE
+        initialize-schema: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ji_ai_agent
+    username: postgres
+    password: 123456
+
 server:
   port: 8123
   servlet:

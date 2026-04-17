@@ -14,7 +14,7 @@ import java.util.Map;
 @SpringBootTest
 class PgVectorVectorStoreConfigTest {
 
-    @Resource
+    @Resource(name = "pgVectorVectorStore")
     private VectorStore pgVectorVectorStore;
 
     @Test

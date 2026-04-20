@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ToolRegistration {
 
-    @Value("${search-api.api-key}")
+    @Value("${search.api-key}")
     private String searchApiKey;
 
     @Bean

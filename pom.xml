@@ -111,6 +111,13 @@
             <version>1.21.2</version>
             <scope>compile</scope>
         </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/com.itextpdf/kernel -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>kernel</artifactId>
+            <version>9.5.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>

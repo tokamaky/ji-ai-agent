@@ -53,3 +53,7 @@ knife4j:
 logging:
   level:
     org.springframework.ai: DEBUG
+
+# application.yml
+search:
+  api-key: ${SEARCH_API_KEY}

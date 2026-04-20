@@ -16,6 +16,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 import org.springframework.ai.chat.client.ChatClient;
 import reactor.core.publisher.Flux;
+import org.springframework.ai.tool.ToolCallbackProvider;
 
 import java.util.List;
 
@@ -39,6 +40,10 @@ public class LoveApp {
 
     @Resource
     private QueryRewriter queryRewriter;
+
+    // AI 调用 MCP 服务
+    @Resource
+    private ToolCallbackProvider toolCallbackProvider;
 
     // AI 调用工具能力
     @Resource
@@ -187,7 +192,30 @@ public class LoveApp {
         return content;
     }
 
+    /**
+     * AI 恋爱报告功能（调用 MCP 服务）
+     *
+     * @param message
+     * @param chatId
+     * @return
+     */
+    public String doChatWithMcp(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                // 开启日志，便于观察效果
+                .advisors(new MyLoggerAdvisor())
+                .toolCallbacks(toolCallbackProvider)
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        log.info("content: {}", content);
+        return content;
+    }
 }
+
+
 
 
 

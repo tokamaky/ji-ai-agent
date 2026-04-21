@@ -5,3 +5,5 @@ spring:
     active: stdio
 server:
   port: 8127
+pexels:
+  api-key: ${PEXELS_API_KEY:235234234}

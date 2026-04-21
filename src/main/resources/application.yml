@@ -17,6 +17,12 @@ spring:
           text:
             options:
               model: text-embedding-005
+      mcp:
+        client:
+          stdio:
+            connctions:
+              server1:
+                url: http://localhost:8127
     vectorstore:
       pgvector:
         index-type: HNSW

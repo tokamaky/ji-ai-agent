@@ -19,10 +19,12 @@ spring:
               model: text-embedding-005
       mcp:
         client:
-          stdio:
-            connctions:
+          sse:
+            connections:
               server1:
-                url: http://localhost:8127
+                url: ${MCP_IMAGE_SEARCH_URL:http://localhost:8127}
+#          stdio:
+#            servers-configuration: classpath:mcp-servers.json
     vectorstore:
       pgvector:
         index-type: HNSW

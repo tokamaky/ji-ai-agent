@@ -41,6 +41,11 @@ server:
   port: 8123
   servlet:
     context-path: /api
+    session:
+      cookie:
+        same-site: none
+        secure: true
+        http-only: true
 # springdoc-openapi????
 springdoc:
   swagger-ui:

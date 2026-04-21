@@ -35,8 +35,8 @@ public class LoveApp {
     @Resource
     private VectorStore loveAppVectorStore;
 
-    @Resource
-    private VectorStore pgVectorVectorStore;
+    //@Resource
+    // VectorStore pgVectorVectorStore;
 
     @Resource
     private QueryRewriter queryRewriter;

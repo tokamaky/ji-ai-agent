@@ -1,6 +1,7 @@
 package com.xiaohang.jiaiagent.rag;
 
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
@@ -21,6 +22,9 @@ public class LoveAppVectorStoreConfig {
     private LoveAppDocumentLoader loveAppDocumentLoader;
 
     @Resource
+    private MyTokenTextSplitter myTokenTextSplitter;
+
+    @Resource
     private MyKeywordEnricher myKeywordEnricher;
 
     @Bean
@@ -29,9 +33,11 @@ public class LoveAppVectorStoreConfig {
         SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(embeddingModel).build();
         // 加载文档
         List<Document> documentList = loveAppDocumentLoader.loadMarkdowns();
+        // 自主切分文档
+        //List<Document> splitDocuments = myTokenTextSplitter.splitCustomized(documentList);
         // 自动补充关键词元信息
         List<Document> enrichedDocuments = myKeywordEnricher.enrichDocuments(documentList);
-        //simpleVectorStore.add(enrichedDocuments);
+        simpleVectorStore.add(enrichedDocuments);
         return simpleVectorStore;
     }
 }

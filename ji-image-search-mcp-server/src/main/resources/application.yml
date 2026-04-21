@@ -6,4 +6,4 @@ spring:
 server:
   port: 8127
 pexels:
-  api-key: ${PEXELS_API_KEY:235234234}
+  api-key: ${PEXELS_API_KEY:qFB5v0CP9hvaxXwN96PiXPXGEu9MidnmTwDLG3db0MBUmS5Tif2yZd2u}

@@ -1,6 +1,5 @@
 package com.xiaohang.jiaiagent.tools;
 
-
 import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
@@ -13,9 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 网页搜索工具
- */
 public class WebSearchTool {
 
     private static final String SEARCH_API_URL = "https://www.searchapi.io/api/v1/search";
@@ -40,7 +36,7 @@ public class WebSearchTool {
             JSONArray organicResults = jsonObject.getJSONArray("organic_results");
 
             if (organicResults == null || organicResults.isEmpty()) {
-                return "No results found for: " + query;
+                return ToolResponse.success("No results found for: " + query);
             }
 
             int limit = Math.min(5, organicResults.size());
@@ -51,9 +47,9 @@ public class WebSearchTool {
                 return tmpJSONObject.toString();
             }).collect(Collectors.joining(","));
 
-            return result;
+            return ToolResponse.data("Search completed for: " + query, JSONUtil.parseArray("[" + result + "]"));
         } catch (Exception e) {
-            return "Error searching Google: " + e.getMessage();
+            return ToolResponse.error("Error searching Google: " + e.getMessage());
         }
     }
 }

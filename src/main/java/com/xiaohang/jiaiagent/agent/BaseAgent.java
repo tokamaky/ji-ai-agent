@@ -1,6 +1,7 @@
 package com.xiaohang.jiaiagent.agent;
 
 import cn.hutool.core.util.StrUtil;
+import com.xiaohang.jiaiagent.agent.model.AgentSSEMessage;
 import com.xiaohang.jiaiagent.agent.model.AgentState;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,22 @@ public abstract class BaseAgent {
 
     // Memory 记忆（需要自主维护会话上下文）
     private List<Message> messageList = new ArrayList<>();
+
+    // SSE 发射器（流式输出时使用）
+    private SseEmitter sseEmitter;
+
+    /**
+     * 向前端发送 SSE 消息（JSON 格式）
+     */
+    protected void sendSSE(String jsonMessage) {
+        if (sseEmitter != null) {
+            try {
+                sseEmitter.send(jsonMessage);
+            } catch (IOException e) {
+                log.error("Failed to send SSE message", e);
+            }
+        }
+    }
 
     /**
      * 运行代理
@@ -105,12 +122,12 @@ public abstract class BaseAgent {
             // 1、基础校验
             try {
                 if (this.state != AgentState.IDLE) {
-                    sseEmitter.send("错误：无法从状态运行代理：" + this.state);
+                    sseEmitter.send(AgentSSEMessage.error("Cannot run agent from state: " + this.state));
                     sseEmitter.complete();
                     return;
                 }
                 if (StrUtil.isBlank(userPrompt)) {
-                    sseEmitter.send("错误：不能使用空提示词运行代理");
+                    sseEmitter.send(AgentSSEMessage.error("Cannot run agent with empty prompt"));
                     sseEmitter.complete();
                     return;
                 }
@@ -119,28 +136,22 @@ public abstract class BaseAgent {
             }
             // 2、执行，更改状态
             this.state = AgentState.RUNNING;
+            this.sseEmitter = sseEmitter;
             // 记录消息上下文
             messageList.add(new UserMessage(userPrompt));
-            // 保存结果列表
-            List<String> results = new ArrayList<>();
             try {
                 // 执行循环
                 for (int i = 0; i < maxSteps && state != AgentState.FINISHED; i++) {
                     int stepNumber = i + 1;
                     currentStep = stepNumber;
                     log.info("Executing step {}/{}", stepNumber, maxSteps);
-                    // 单步执行
-                    String stepResult = step();
-                    String result = "Step " + stepNumber + ": " + stepResult;
-                    results.add(result);
-                    // 输出当前每一步的结果到 SSE
-                    sseEmitter.send(result);
+                    // 单步执行（step 内部通过 sendSSE 直接发送消息）
+                    step();
                 }
                 // 检查是否超出步骤限制
                 if (currentStep >= maxSteps) {
                     state = AgentState.FINISHED;
-                    results.add("Terminated: Reached max steps (" + maxSteps + ")");
-                    sseEmitter.send("执行结束：达到最大步骤（" + maxSteps + "）");
+                    sseEmitter.send(AgentSSEMessage.error("Reached max steps (" + maxSteps + ")"));
                 }
                 // 正常完成
                 sseEmitter.complete();
@@ -148,7 +159,7 @@ public abstract class BaseAgent {
                 state = AgentState.ERROR;
                 log.error("error executing agent", e);
                 try {
-                    sseEmitter.send("执行错误：" + e.getMessage());
+                    sseEmitter.send(AgentSSEMessage.error(e.getMessage()));
                     sseEmitter.complete();
                 } catch (IOException ex) {
                     sseEmitter.completeWithError(ex);

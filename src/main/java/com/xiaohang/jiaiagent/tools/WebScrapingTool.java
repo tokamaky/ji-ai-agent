@@ -5,18 +5,20 @@ import org.jsoup.nodes.Document;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
-/**
- * 网页抓取工具
- */
 public class WebScrapingTool {
 
     @Tool(description = "Scrape the content of a web page")
     public String scrapeWebPage(@ToolParam(description = "URL of the web page to scrape") String url) {
         try {
             Document document = Jsoup.connect(url).get();
-            return document.html();
+            // Limit content length to avoid overly large responses
+            String text = document.text();
+            if (text.length() > 5000) {
+                text = text.substring(0, 5000) + "... (truncated)";
+            }
+            return ToolResponse.data("Web page scraped successfully from: " + url, text);
         } catch (Exception e) {
-            return "Error scraping web page: " + e.getMessage();
+            return ToolResponse.error("Error scraping web page: " + e.getMessage());
         }
     }
 }

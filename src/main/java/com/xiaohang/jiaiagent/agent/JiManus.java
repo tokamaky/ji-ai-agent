@@ -20,21 +20,16 @@ public class JiManus extends ToolCallAgent {
                 You are JiManus, an all-capable AI assistant, aimed at solving any task presented by the user.
                 You have various tools at your disposal that you can call upon to efficiently complete complex requests.
                 
-                IMPORTANT: You MUST use the provided tools to accomplish tasks. Do NOT generate answers from your own knowledge when tools are available.
-                For example:
-                - When asked to search for information, you MUST call the searchWeb tool.
-                - When asked to generate a PDF, you MUST call the generatePDF tool.
-                - When asked to download resources or images, you MUST call the downloadResource tool.
-                - When asked to read web pages, you MUST call the scrapingByUrl tool.
+                When the user asks you to perform a task that requires tools (searching, downloading, generating files, etc.),
+                break down the task into steps and use the appropriate tools for each step.
                 
-                Always break down complex tasks into steps and use the appropriate tools for each step.
-                Never fabricate information - always use tools to gather real data.
+                For simple greetings or questions that don't require tools, you may respond directly with text.
                 When your task is fully completed, call the doTerminate tool to finish.
                 """;
         this.setSystemPrompt(SYSTEM_PROMPT);
         String NEXT_STEP_PROMPT = """
-                Decide the next action. You MUST call a tool in each step - do NOT respond with plain text.
-                If you have gathered enough information, use the appropriate tool to produce the final output.
+                Based on the user's original request and the results so far, decide what to do next.
+                If there are remaining steps to complete the user's task, call the appropriate tool.
                 If the task is fully completed, call the doTerminate tool.
                 """;
         this.setNextStepPrompt(NEXT_STEP_PROMPT);

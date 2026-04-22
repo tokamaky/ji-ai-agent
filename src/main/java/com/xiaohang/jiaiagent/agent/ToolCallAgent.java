@@ -2,6 +2,7 @@ package com.xiaohang.jiaiagent.agent;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.xiaohang.jiaiagent.agent.model.AgentSSEMessage;
 import com.xiaohang.jiaiagent.agent.model.AgentState;
 import org.springframework.ai.vertexai.gemini.VertexAiGeminiChatOptions;
 import lombok.Data;
@@ -45,6 +46,9 @@ public class ToolCallAgent extends ReActAgent {
     private int noToolCallCount = 0;
     private static final int MAX_NO_TOOL_CALLS = 3;
 
+    /** 记录每次 think 产生的最新一条非空思考文本，用于终止时作为最终回复 */
+    private String lastThinkingText = "";
+
     public ToolCallAgent(ToolCallback[] availableTools) {
         super();
         this.availableTools = availableTools;
@@ -62,10 +66,9 @@ public class ToolCallAgent extends ReActAgent {
      */
     @Override
     public boolean think() {
-        // 1、校验提示词，拼接用户提示词
-        if (StrUtil.isNotBlank(getNextStepPrompt())) {
-            UserMessage userMessage = new UserMessage(getNextStepPrompt());
-            getMessageList().add(userMessage);
+        // 1、只在第二步及之后添加下一步提示词
+        if (getCurrentStep() > 1 && StrUtil.isNotBlank(getNextStepPrompt())) {
+            getMessageList().add(new UserMessage("[INSTRUCTION] " + getNextStepPrompt()));
         }
         // 2、调用 AI 大模型，获取工具调用结果
         List<Message> messageList = getMessageList();
@@ -76,26 +79,31 @@ public class ToolCallAgent extends ReActAgent {
                     .toolCallbacks(availableTools)
                     .call()
                     .chatResponse();
-            // 记录响应，用于等下 Act
             this.toolCallChatResponse = chatResponse;
-            // 3、解析工具调用结果，获取要调用的工具
-            // 助手消息
+            // 3、解析工具调用结果
             AssistantMessage assistantMessage = chatResponse.getResult().getOutput();
-            // 获取要调用的工具列表
             List<AssistantMessage.ToolCall> toolCallList = assistantMessage.getToolCalls();
-            // 输出提示信息
-            String result = assistantMessage.getText();
-            log.info(getName() + "的思考：" + result);
+            String thinkingText = assistantMessage.getText();
+            log.info(getName() + "的思考：" + thinkingText);
             log.info(getName() + "选择了 " + toolCallList.size() + " 个工具来使用");
+
+            // 发送 thinking 消息到前端（如果有思考内容）
+            if (StrUtil.isNotBlank(thinkingText)) {
+                sendSSE(AgentSSEMessage.thinking(thinkingText));
+                lastThinkingText = thinkingText;
+            }
+
             String toolCallInfo = toolCallList.stream()
                     .map(toolCall -> String.format("工具名称：%s，参数：%s", toolCall.name(), toolCall.arguments()))
                     .collect(Collectors.joining("\n"));
             log.info(toolCallInfo);
-            // 如果不需要调用工具，返回 false
+
             if (toolCallList.isEmpty()) {
-                // 只有不调用工具时，才需要手动记录助手消息
                 getMessageList().add(assistantMessage);
-                // 连续无工具调用计数 +1，达到上限则强制终止
+                if (getCurrentStep() <= 1) {
+                    setState(AgentState.FINISHED);
+                    return false;
+                }
                 noToolCallCount++;
                 if (noToolCallCount >= MAX_NO_TOOL_CALLS) {
                     log.warn("连续 {} 次未调用工具，强制终止", MAX_NO_TOOL_CALLS);
@@ -103,43 +111,87 @@ public class ToolCallAgent extends ReActAgent {
                 }
                 return false;
             } else {
-                // 调用了工具，重置计数器
                 noToolCallCount = 0;
+                // 发送每个工具调用信息到前端
+                for (AssistantMessage.ToolCall toolCall : toolCallList) {
+                    try {
+                        cn.hutool.json.JSONObject argsJson = cn.hutool.json.JSONUtil.parseObj(toolCall.arguments());
+                        sendSSE(AgentSSEMessage.toolCall(toolCall.name(), argsJson));
+                    } catch (Exception e) {
+                        java.util.Map<String, Object> argsMap = new java.util.HashMap<>();
+                        argsMap.put("raw", toolCall.arguments());
+                        sendSSE(AgentSSEMessage.toolCall(toolCall.name(), argsMap));
+                    }
+                }
                 return true;
             }
         } catch (Exception e) {
             log.error(getName() + "的思考过程遇到了问题：" + e.getMessage());
-            getMessageList().add(new AssistantMessage("处理时遇到了错误：" + e.getMessage()));
+            sendSSE(AgentSSEMessage.error("思考过程出错：" + e.getMessage()));
+            setState(AgentState.FINISHED);
             return false;
         }
     }
-    /**
-     * 执行工具调用并处理结果
-     *
-     * @return 执行结果
-     */
+
     @Override
     public String act() {
         if (!toolCallChatResponse.hasToolCalls()) {
+            sendSSE(AgentSSEMessage.finalResponse("没有工具需要调用"));
             return "没有工具需要调用";
         }
         // 调用工具
         Prompt prompt = new Prompt(getMessageList(), this.chatOptions);
         ToolExecutionResult toolExecutionResult = toolCallingManager.executeToolCalls(prompt, toolCallChatResponse);
-        // 记录消息上下文，conversationHistory 已经包含了助手消息和工具调用返回的结果
         setMessageList(toolExecutionResult.conversationHistory());
         ToolResponseMessage toolResponseMessage = (ToolResponseMessage) CollUtil.getLast(toolExecutionResult.conversationHistory());
+
         // 判断是否调用了终止工具
         boolean terminateToolCalled = toolResponseMessage.getResponses().stream()
                 .anyMatch(response -> response.name().equals("doTerminate"));
-        if (terminateToolCalled) {
-            // 任务结束，更改状态
-            setState(AgentState.FINISHED);
+
+        // 发送每个工具的执行结果到前端（跳过 doTerminate 本身）
+        for (ToolResponseMessage.ToolResponse response : toolResponseMessage.getResponses()) {
+            log.info("工具 " + response.name() + " 返回的结果：" + response.responseData());
+            if (!"doTerminate".equals(response.name())) {
+                sendSSE(AgentSSEMessage.toolResult(response.name(), response.responseData()));
+            }
         }
-        String results = toolResponseMessage.getResponses().stream()
-                .map(response -> "工具 " + response.name() + " 返回的结果：" + response.responseData())
-                .collect(Collectors.joining("\n"));
-        log.info(results);
-        return results;
+
+        if (terminateToolCalled) {
+            setState(AgentState.FINISHED);
+            // 任务结束时，如果已经有过思考内容，直接用最后一次思考作为最终回复；
+            // 否则才调用 AI 生成总结
+            if (StrUtil.isNotBlank(lastThinkingText)) {
+                sendSSE(AgentSSEMessage.finalResponse(lastThinkingText));
+            } else {
+                generateFinalSummary();
+            }
+        }
+
+        return "工具执行完成";
+    }
+
+    /**
+     * 任务结束时，让 AI 根据所有上下文生成一段用户友好的总结
+     * 仅在整个对话过程中 AI 没有产生过思考文本时调用
+     */
+    private void generateFinalSummary() {
+        try {
+            getMessageList().add(new UserMessage(
+                    "[INSTRUCTION] The task is now complete. Please provide a concise, helpful summary of the results in the user's language. Do NOT call any tools."
+            ));
+            ChatResponse summaryResponse = getChatClient()
+                    .prompt(new Prompt(getMessageList()))
+                    .system(getSystemPrompt())
+                    .call()
+                    .chatResponse();
+            String summary = summaryResponse.getResult().getOutput().getText();
+            if (StrUtil.isNotBlank(summary)) {
+                log.info(getName() + "的最终总结：" + summary);
+                sendSSE(AgentSSEMessage.finalResponse(summary));
+            }
+        } catch (Exception e) {
+            log.warn("生成最终总结失败：" + e.getMessage());
+        }
     }
 }

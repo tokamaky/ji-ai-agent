@@ -4,6 +4,6 @@ spring:
   profiles:
     active: sse
 server:
-  port: 8127
+  port: ${PORT:8127}
 pexels:
   api-key: ${PEXELS_API_KEY}

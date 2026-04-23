@@ -1,5 +1,6 @@
 package com.xiaohang.jiaiagent.agent;
 
+import com.xiaohang.jiaiagent.agent.model.AgentState;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +42,13 @@ public abstract class ReActAgent extends BaseAgent {
             // 先思考
             boolean shouldAct = think();
             if (!shouldAct) {
-                // 无需行动时，获取最后一条助手消息作为最终回复
+                // 无需行动时，如果状态已经是 FINISHED（由子类处理），则不重复发送 final_response
+                // 注意：子类通过 sendFinalResponseAndStop 已经在 think() 中发送了最终响应
+                if (getState() == AgentState.FINISHED) {
+                    log.info("Agent state already FINISHED after think(), skipping duplicate final_response");
+                    return "任务已完成";
+                }
+                // 否则获取最后一条助手消息作为最终回复
                 List<Message> messages = getMessageList();
                 String lastContent = "";
                 for (int i = messages.size() - 1; i >= 0; i--) {
@@ -56,9 +63,17 @@ public abstract class ReActAgent extends BaseAgent {
             }
             // 再行动（act 内部会通过 sendSSE 发送 tool_call 和 tool_result）
             return act();
+        } catch (IllegalStateException e) {
+            // SSE 连接已关闭，可能是正常的结束信号，重新抛出以中断循环
+            log.warn("SSE connection closed during step (IllegalStateException): {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             e.printStackTrace();
-            sendSSE(com.xiaohang.jiaiagent.agent.model.AgentSSEMessage.error("步骤执行失败：" + e.getMessage()));
+            try {
+                sendSSE(com.xiaohang.jiaiagent.agent.model.AgentSSEMessage.error("步骤执行失败：" + e.getMessage()));
+            } catch (IllegalStateException sseError) {
+                // SSE 已关闭，忽略
+            }
             return "步骤执行失败：" + e.getMessage();
         }
     }

@@ -84,12 +84,10 @@ public class ToolCallAgent extends ReActAgent {
             AssistantMessage assistantMessage = chatResponse.getResult().getOutput();
             List<AssistantMessage.ToolCall> toolCallList = assistantMessage.getToolCalls();
             String thinkingText = assistantMessage.getText();
-            log.info(getName() + "的思考：" + thinkingText);
             log.info(getName() + "选择了 " + toolCallList.size() + " 个工具来使用");
 
-            // 发送 thinking 消息到前端（如果有思考内容）
+            // 记录思考文本（用于后续可能的最终回复）
             if (StrUtil.isNotBlank(thinkingText)) {
-                sendSSE(AgentSSEMessage.thinking(thinkingText));
                 lastThinkingText = thinkingText;
             }
 
@@ -102,7 +100,10 @@ public class ToolCallAgent extends ReActAgent {
                 getMessageList().add(assistantMessage);
                 if (getCurrentStep() <= 1) {
                     setState(AgentState.FINISHED);
-                    return false;
+                    // 使用 sendFinalResponseAndStop 来发送最终响应并标记 SSE 为已关闭
+                    String content = StrUtil.isNotBlank(thinkingText) ? thinkingText : "任务完成";
+                    sendFinalResponseAndStop(content);
+                    return false; // 不会执行到这里
                 }
                 noToolCallCount++;
                 if (noToolCallCount >= MAX_NO_TOOL_CALLS) {
@@ -125,9 +126,17 @@ public class ToolCallAgent extends ReActAgent {
                 }
                 return true;
             }
+        } catch (IllegalStateException e) {
+            // SSE 连接已关闭，重新抛出以中断循环
+            log.warn("SSE connection closed during think, re-throwing: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error(getName() + "的思考过程遇到了问题：" + e.getMessage());
-            sendSSE(AgentSSEMessage.error("思考过程出错：" + e.getMessage()));
+            try {
+                sendSSE(AgentSSEMessage.error("思考过程出错：" + e.getMessage()));
+            } catch (IllegalStateException sseError) {
+                // SSE 已关闭，忽略
+            }
             setState(AgentState.FINISHED);
             return false;
         }
@@ -135,40 +144,46 @@ public class ToolCallAgent extends ReActAgent {
 
     @Override
     public String act() {
-        if (!toolCallChatResponse.hasToolCalls()) {
-            sendSSE(AgentSSEMessage.finalResponse("没有工具需要调用"));
-            return "没有工具需要调用";
-        }
-        // 调用工具
-        Prompt prompt = new Prompt(getMessageList(), this.chatOptions);
-        ToolExecutionResult toolExecutionResult = toolCallingManager.executeToolCalls(prompt, toolCallChatResponse);
-        setMessageList(toolExecutionResult.conversationHistory());
-        ToolResponseMessage toolResponseMessage = (ToolResponseMessage) CollUtil.getLast(toolExecutionResult.conversationHistory());
-
-        // 判断是否调用了终止工具
-        boolean terminateToolCalled = toolResponseMessage.getResponses().stream()
-                .anyMatch(response -> response.name().equals("doTerminate"));
-
-        // 发送每个工具的执行结果到前端（跳过 doTerminate 本身）
-        for (ToolResponseMessage.ToolResponse response : toolResponseMessage.getResponses()) {
-            log.info("工具 " + response.name() + " 返回的结果：" + response.responseData());
-            if (!"doTerminate".equals(response.name())) {
-                sendSSE(AgentSSEMessage.toolResult(response.name(), response.responseData()));
+        try {
+            if (!toolCallChatResponse.hasToolCalls()) {
+                sendSSE(AgentSSEMessage.finalResponse("没有工具需要调用"));
+                return "没有工具需要调用";
             }
-        }
+            // 调用工具
+            Prompt prompt = new Prompt(getMessageList(), this.chatOptions);
+            ToolExecutionResult toolExecutionResult = toolCallingManager.executeToolCalls(prompt, toolCallChatResponse);
+            setMessageList(toolExecutionResult.conversationHistory());
+            ToolResponseMessage toolResponseMessage = (ToolResponseMessage) CollUtil.getLast(toolExecutionResult.conversationHistory());
 
-        if (terminateToolCalled) {
-            setState(AgentState.FINISHED);
-            // 任务结束时，如果已经有过思考内容，直接用最后一次思考作为最终回复；
-            // 否则才调用 AI 生成总结
-            if (StrUtil.isNotBlank(lastThinkingText)) {
-                sendSSE(AgentSSEMessage.finalResponse(lastThinkingText));
-            } else {
-                generateFinalSummary();
+            // 判断是否调用了终止工具
+            boolean terminateToolCalled = toolResponseMessage.getResponses().stream()
+                    .anyMatch(response -> response.name().equals("doTerminate"));
+
+            // 发送每个工具的执行结果到前端（跳过 doTerminate 本身）
+            for (ToolResponseMessage.ToolResponse response : toolResponseMessage.getResponses()) {
+                log.info("工具 " + response.name() + " 返回的结果：" + response.responseData());
+                if (!"doTerminate".equals(response.name())) {
+                    sendSSE(AgentSSEMessage.toolResult(response.name(), response.responseData()));
+                }
             }
-        }
 
-        return "工具执行完成";
+            if (terminateToolCalled) {
+                setState(AgentState.FINISHED);
+                // 任务结束时，如果已经有过思考内容，直接用最后一次思考作为最终回复；
+                // 否则才调用 AI 生成总结
+                if (StrUtil.isNotBlank(lastThinkingText)) {
+                    sendSSE(AgentSSEMessage.finalResponse(lastThinkingText));
+                } else {
+                    generateFinalSummary();
+                }
+            }
+
+            return "工具执行完成";
+        } catch (IllegalStateException e) {
+            // SSE 连接已关闭，重新抛出以中断循环
+            log.warn("SSE connection closed during act, re-throwing: {}", e.getMessage());
+            throw e;
+        }
     }
 
     /**
@@ -190,6 +205,9 @@ public class ToolCallAgent extends ReActAgent {
                 log.info(getName() + "的最终总结：" + summary);
                 sendSSE(AgentSSEMessage.finalResponse(summary));
             }
+        } catch (IllegalStateException e) {
+            // SSE 已关闭，忽略
+            log.warn("SSE connection closed during generateFinalSummary");
         } catch (Exception e) {
             log.warn("生成最终总结失败：" + e.getMessage());
         }

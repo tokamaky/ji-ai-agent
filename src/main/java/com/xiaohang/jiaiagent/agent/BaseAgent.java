@@ -47,18 +47,72 @@ public abstract class BaseAgent {
 
     // SSE 发射器（流式输出时使用）
     private SseEmitter sseEmitter;
+    // SSE 连接已关闭标志
+    private volatile boolean sseClosed = false;
 
     /**
      * 向前端发送 SSE 消息（JSON 格式）
+     * @throws IllegalStateException 如果 SSE 连接已关闭
      */
     protected void sendSSE(String jsonMessage) {
-        if (sseEmitter != null) {
+        // 检查 SSE 是否已标记为关闭
+        if (this.sseClosed) {
+            log.warn("SSE connection already marked as closed, skipping send");
+            throw new IllegalStateException("SSE connection already closed");
+        }
+
+        // 检查 sseEmitter 是否存在
+        SseEmitter emitter = this.sseEmitter;
+        if (emitter == null) {
+            log.warn("SSE emitter is null, cannot send");
+            throw new IllegalStateException("SSE emitter is null");
+        }
+
+        try {
+            log.info("SSE SEND: {}", jsonMessage);
+            emitter.send(jsonMessage);
+
+            // 发送后再次检查连接状态（如果发送成功，连接应该是打开的）
+        } catch (IOException e) {
+            // SSE 连接已关闭
+            log.warn("SSE connection IO error: {}, marking as closed", e.getMessage());
+            this.sseClosed = true;
+            this.sseEmitter = null; // 清除引用
+            throw new IllegalStateException("SSE connection closed", e);
+        } catch (IllegalStateException e) {
+            // Spring 可能在内部检测到连接已关闭
+            log.warn("SSE connection IllegalStateException: {}, marking as closed", e.getMessage());
+            this.sseClosed = true;
+            this.sseEmitter = null;
+            throw e;
+        }
+    }
+
+    /**
+     * 发送最终响应并标记 SSE 连接为已关闭，用于完成任务后停止执行循环
+     * 关键：先标记为已关闭，再发送消息并抛出异常
+     *
+     * 同时发送 "[DONE]" 标记作为流结束信号，前端在收到此标记后会主动关闭连接，
+     * 避免依赖底层 connection close 触发浏览器的自动重连。
+     */
+    protected void sendFinalResponseAndStop(String content) {
+        log.info("Sending final response and marking SSE as closed");
+        // 先标记为已关闭，防止后续循环继续
+        this.sseClosed = true;
+        // 尝试发送最终响应
+        if (this.sseEmitter != null) {
             try {
-                sseEmitter.send(jsonMessage);
+                this.sseEmitter.send(AgentSSEMessage.finalResponse(content));
+                // 发送明确的流结束标记（OpenAI 风格的 [DONE] sentinel）
+                this.sseEmitter.send("[DONE]");
             } catch (IOException e) {
-                log.error("Failed to send SSE message", e);
+                log.warn("Failed to send final response (SSE likely closed): {}", e.getMessage());
+            } catch (IllegalStateException e) {
+                log.warn("SSE already closed when sending final response");
             }
         }
+        // 抛出异常以中断执行循环
+        throw new IllegalStateException("Final response sent, stopping execution");
     }
 
     /**
@@ -141,20 +195,45 @@ public abstract class BaseAgent {
             messageList.add(new UserMessage(userPrompt));
             try {
                 // 执行循环
-                for (int i = 0; i < maxSteps && state != AgentState.FINISHED; i++) {
+                for (int i = 0; i < maxSteps && state != AgentState.FINISHED && !sseClosed; i++) {
+                    // 每次循环开始时检查 SSE 连接状态
+                    log.info("Loop iteration {}/{}, sseClosed={}, state={}", i + 1, maxSteps, sseClosed, state);
+                    if (sseClosed) {
+                        log.info("SSE connection closed (flag check), stopping execution");
+                        break;
+                    }
                     int stepNumber = i + 1;
                     currentStep = stepNumber;
                     log.info("Executing step {}/{}", stepNumber, maxSteps);
                     // 单步执行（step 内部通过 sendSSE 直接发送消息）
-                    step();
+                    try {
+                        step();
+                    } catch (IllegalStateException e) {
+                        // SSE 连接已关闭，停止执行循环
+                        log.warn("SSE connection closed during step (exception), stopping execution");
+                        break;
+                    }
+                    // 如果状态已设置为 FINISHED，提前退出循环
+                    if (state == AgentState.FINISHED || sseClosed) {
+                        log.info("Exiting loop: FINISHED={}, sseClosed={}", state == AgentState.FINISHED, sseClosed);
+                        break;
+                    }
                 }
                 // 检查是否超出步骤限制
-                if (currentStep >= maxSteps) {
+                if (currentStep >= maxSteps && state != AgentState.FINISHED) {
                     state = AgentState.FINISHED;
-                    sseEmitter.send(AgentSSEMessage.error("Reached max steps (" + maxSteps + ")"));
+                    try {
+                        sseEmitter.send(AgentSSEMessage.error("Reached max steps (" + maxSteps + ")"));
+                    } catch (IOException ignored) {
+                        // SSE connection may already be closed
+                    }
                 }
                 // 正常完成
-                sseEmitter.complete();
+                try {
+                    sseEmitter.complete();
+                } catch (Exception e) {
+                    log.warn("SSE emitter already completed: {}", e.getMessage());
+                }
             } catch (Exception e) {
                 state = AgentState.ERROR;
                 log.error("error executing agent", e);

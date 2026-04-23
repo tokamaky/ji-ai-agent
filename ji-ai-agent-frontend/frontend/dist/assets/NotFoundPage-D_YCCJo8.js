@@ -1,0 +1,7 @@
+import{j as e}from"./markdown-BfzSaPaa.js";import{u as s}from"./vendor-M7OwaUJ1.js";import{S as a,s as r}from"./ui-9IydC0Ul.js";function i(){const t=s();return e.jsxs("div",{className:"flex flex-col items-center justify-center min-h-screen gap-6 bg-surface-50 dark:bg-surface-950 px-4",children:[e.jsxs("div",{className:"relative",children:[e.jsx("div",{className:"text-8xl select-none",style:{filter:"blur(1px)"},children:e.jsx(a,{className:"w-20 h-20 text-violet-600/30 dark:text-violet-600/30"})}),e.jsx("div",{className:"absolute inset-0 flex items-center justify-center",children:e.jsx("span",{className:"text-8xl",children:"🛸"})})]}),e.jsxs("div",{className:"text-center",children:[e.jsx("h1",{className:"text-7xl font-bold text-surface-300 dark:text-surface-800 mb-3 select-none",children:"404"}),e.jsx("h2",{className:"text-2xl font-semibold text-surface-700 dark:text-surface-300 mb-2",children:"Page Not Found"}),e.jsx("p",{className:"text-surface-500 dark:text-surface-500",children:"The page you're looking for has vanished into the cosmos…"})]}),e.jsxs("button",{onClick:()=>t("/"),className:`flex items-center gap-2 px-6 py-3 rounded-2xl
+          bg-gradient-to-r from-violet-600 to-purple-600
+          hover:from-violet-500 hover:to-purple-500
+          text-white font-medium
+          shadow-lg shadow-violet-500/20 dark:shadow-violet-500/20
+          transform hover:-translate-y-0.5 active:translate-y-0
+          transition-all duration-200`,children:[e.jsx(r,{size:16}),"Back to Home"]})]})}export{i as default};

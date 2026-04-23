@@ -113,8 +113,11 @@ public class ToolCallAgent extends ReActAgent {
                 return false;
             } else {
                 noToolCallCount = 0;
-                // 发送每个工具调用信息到前端
+                // 发送每个工具调用信息到前端（跳过 doTerminate）
                 for (AssistantMessage.ToolCall toolCall : toolCallList) {
+                    if ("doTerminate".equals(toolCall.name())) {
+                        continue;
+                    }
                     try {
                         cn.hutool.json.JSONObject argsJson = cn.hutool.json.JSONUtil.parseObj(toolCall.arguments());
                         sendSSE(AgentSSEMessage.toolCall(toolCall.name(), argsJson));

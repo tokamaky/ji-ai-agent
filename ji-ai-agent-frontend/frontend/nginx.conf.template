@@ -41,4 +41,11 @@ server {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
+
+    location /v3/api-docs {
+        set $backend_swagger ${BACKEND_INTERNAL_URL};
+        proxy_pass $backend_swagger;
+        proxy_set_header Host backend-production-bab0.up.railway.app;
+        proxy_ssl_server_name on;
+    }
 }

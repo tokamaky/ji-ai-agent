@@ -3,9 +3,9 @@ FROM maven:3.9-eclipse-temurin-21 AS builder
 
 WORKDIR /build
 
-# 只拷贝 MCP 子模块的内容
-COPY pom.xml .
-COPY src src
+# 从 repo 根目录拷贝 MCP 子模块
+COPY ji-image-search-mcp-server/pom.xml .
+COPY ji-image-search-mcp-server/src src
 
 RUN mvn clean package -DskipTests -B
 

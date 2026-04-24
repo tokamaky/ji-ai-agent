@@ -39,3 +39,26 @@ backend.zip
 node_modules/
 ji-ai-agent-frontend/frontend/frontend.zip
 *.zip
+
+# Build
+dist/
+*.jar
+*.war
+
+# IDE
+.idea/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env.local
+*.env
+
+# Maven
+.mvn/timing.properties

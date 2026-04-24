@@ -19,7 +19,7 @@ FROM nginx:1.27-alpine
 COPY --from=builder /build/dist /usr/share/nginx/html
 
 # 拷贝 Nginx 模板（运行时用 envsubst 替换变量）
-COPY ji-ai-agent-frontend/frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Railway 注入 PORT；BACKEND_INTERNAL_URL 我们自己设
 # nginx:alpine 的 entrypoint 会自动处理 /etc/nginx/templates/*.template

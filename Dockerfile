@@ -1,35 +1,28 @@
 # ===== Stage 1: Build =====
-FROM maven:3.9-eclipse-temurin-21 AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /build
 
-# 拷贝 Maven wrapper 和 pom
-COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw mvnw
-COPY mvnw.cmd mvnw.cmd
+# 利用缓存（构建上下文是根目录，所以要指定完整路径）
+COPY ji-ai-agent-frontend/frontend/package.json ji-ai-agent-frontend/frontend/package-lock.json ./
+RUN npm ci
 
-# 预下载依赖（加速构建缓存）
-RUN mvn dependency:go-offline -B || true
+COPY ji-ai-agent-frontend/frontend/ .
 
-# 拷贝源码
-COPY src src
-
-# 打包，跳过测试
-RUN mvn clean package -DskipTests -B
+# Vite 构建，产出在 dist/
+RUN npm run build
 
 # ===== Stage 2: Runtime =====
-FROM eclipse-temurin:21-jre
+FROM nginx:1.27-alpine
 
-WORKDIR /app
+# 拷贝构建产物
+COPY --from=builder /build/dist /usr/share/nginx/html
 
-# 从构建阶段拷贝 jar
-COPY --from=builder /build/target/*.jar app.jar
+# 拷贝 Nginx 模板（运行时用 envsubst 替换变量）
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
-# Railway 会注入 PORT 环境变量
-EXPOSE 8123
+# Railway 注入 PORT；BACKEND_INTERNAL_URL 我们自己设
+# nginx:alpine 的 entrypoint 会自动处理 /etc/nginx/templates/*.template
+EXPOSE 80
 
-# JVM 内存参数
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# 默认 entrypoint 会执行 envsubst 并启动 nginx

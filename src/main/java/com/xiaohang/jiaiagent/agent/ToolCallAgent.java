@@ -4,7 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.xiaohang.jiaiagent.agent.model.AgentSSEMessage;
 import com.xiaohang.jiaiagent.agent.model.AgentState;
-import org.springframework.ai.vertexai.gemini.VertexAiGeminiChatOptions;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +54,7 @@ public class ToolCallAgent extends ReActAgent {
         this.availableTools = availableTools;
         this.toolCallingManager = ToolCallingManager.builder().build();
         // 禁用 Spring AI 内置的工具调用机制，自己维护选项和消息上下文
-        this.chatOptions = VertexAiGeminiChatOptions.builder()
+        this.chatOptions = GoogleGenAiChatOptions.builder()
                 .internalToolExecutionEnabled(false)
                 .build();
     }

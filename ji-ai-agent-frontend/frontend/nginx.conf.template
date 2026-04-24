@@ -1,0 +1,51 @@
+server {
+    listen ${PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    resolver 8.8.8.8 1.1.1.1 valid=300s;
+
+    location /api/ {
+        set $backend ${BACKEND_INTERNAL_URL};
+        proxy_pass $backend;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host backend-production-bab0.up.railway.app;
+        proxy_ssl_server_name on;
+        proxy_ssl_name backend-production-bab0.up.railway.app;
+
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Connection '';
+        chunked_transfer_encoding off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_connect_timeout 60s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /v3/api-docs {
+        set $backend_swagger ${BACKEND_INTERNAL_URL};
+        proxy_pass $backend_swagger;
+        proxy_set_header Host backend-production-bab0.up.railway.app;
+        proxy_ssl_server_name on;
+    }
+}

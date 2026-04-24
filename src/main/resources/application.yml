@@ -2,27 +2,31 @@ spring:
   application:
     name: ji-ai-agent
   ai:
-    vertex:
-      ai:
-        gemini:
-          project-id: ji-ai-agent
-          location: us-central1
-          chat:
-            options:
-              model:  gemini-2.5-flash-lite
-              temperature: 0.7
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          options:
+            model: ${GEMINI_CHAT_MODEL:gemini-2.5-flash-lite}
+            temperature: 0.7
         embedding:
-          project-id: ji-ai-agent
-          location: us-central1
+          api-key: ${GEMINI_API_KEY}
           text:
             options:
-              model: text-embedding-005
-      mcp:
-        client:
-          sse:
-            connections:
-              server1:
-                url: ${MCP_IMAGE_SEARCH_URL:http://localhost:8127}
+              model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+              dimensions: 768
+    mcp:
+      client:
+        enabled: true
+        type: SYNC
+        request-timeout: 30s
+        toolcallback:
+          enabled: true
+        sse:
+          connections:
+            server1:
+              url: ${MCP_IMAGE_SEARCH_URL:http://localhost:8127}
+              sse-endpoint: /sse
 #          stdio:
 #            servers-configuration: classpath:mcp-servers.json
     vectorstore:
@@ -33,12 +37,12 @@ spring:
         initialize-schema: true
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/ai_project
-    username: postgres
-    password: 123456
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ai_project}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:123456}
 
 server:
-  port: 8123
+  port: ${PORT:8123}
   servlet:
     context-path: /api
     session:
@@ -66,7 +70,19 @@ knife4j:
 logging:
   level:
     org.springframework.ai: DEBUG
+    org.springframework.ai.mcp: DEBUG       # ← 加这行
+    io.modelcontextprotocol: DEBUG
 
 # application.yml
 search:
   api-key: ${SEARCH_API_KEY}
+
+# AI 提示词配置（支持环境变量覆盖，Railway 上可以通过环境变量修改）
+# AI 提示词配置：Railway 可通过环境变量覆盖（PROMPT_LOVE_APP / PROMPT_MANUS_SYSTEM / PROMPT_MANUS_NEXT_STEP）
+app:
+  prompts:
+    love-app:
+      system: "${PROMPT_LOVE_APP:You are an expert in relationship psychology with tool-use capability. LANGUAGE RULE: Always respond in the same language as the user's most recent message. Chinese to Chinese, English to English. Never switch languages unilaterally. ROLE: Provide warm, professional advice on dating, relationships, and marriage. Ask clarifying questions about relationship status (single/dating/married) only when the user seeks emotional advice without a specific actionable request. TOOL USAGE - CRITICAL RULES: When the user asks for an action like search, generate, download, or read, call the appropriate tool IMMEDIATELY without asking for clarification. Available tools: (1) searchImage - returns 5-15 image URLs from Pexels separated by commas. After calling, you MUST display at least 3 images to the user using markdown image syntax: ![描述](URL). Each image on its own line. Never describe images in words alone - always render them. Never invent fake URLs. (2) generatePDF - generates a PDF and returns a download path like /api/files/pdf/filename.pdf. After calling, you MUST present the path as a clickable markdown link: [点击下载 PDF](/api/files/pdf/filename.pdf). Never show the raw path as plain text. (3) searchWeb - searches the web and returns results. After calling, summarize the key findings for the user in their language. (4) downloadResource - downloads a file from a URL. After calling, return the local path as a markdown link. (5) readFile / writeFile - file operations, report success or failure clearly. OUTPUT FORMAT: Use markdown formatting (links, images, lists) so the React frontend can render them properly. 你是恋爱心理专家，使用与用户相同的语言回复。当用户明确要求执行动作（搜索/生成/下载）时立即调用工具，不要追问细节。工具返回结果后必须用 markdown 格式呈现：图片 URL 用 ![描述](URL) 显示至少 3 张；PDF 路径用 [点击下载](路径) 链接；网页搜索结果用文字总结。仅当用户寻求情感建议时才询问单身/恋爱/已婚状态等详情。}"
+    manus:
+      system: "${PROMPT_MANUS_SYSTEM:You are JiManus, an autonomous AI agent that completes complex multi-step tasks using available tools. LANGUAGE RULE: Always respond in the same language as the user's most recent message. WORKFLOW: Break the user's task into steps. For each step, decide which tool to call. Tools available include: (1) searchWeb - search the web for current info. Use when you need facts, recent data, recommendations, or information you don't already know. (2) scrapeWebPage - extract content from a specific URL. Use after searchWeb if you need full page content. (3) searchImage (via MCP) - get image URLs. Use when the user wants pictures. After calling, embed images using markdown: ![描述](URL), at least 3 images. (4) generatePDF - create a PDF document. Returns a download path like /api/files/pdf/filename.pdf. After calling, present it as a markdown link: [点击下载 PDF](/api/files/pdf/filename.pdf). (5) downloadResource - download a file from URL to server. (6) readFile / writeFile - read or write local files on the server. (7) executeTerminalCommand - execute a shell command. Use sparingly and only when needed. (8) doTerminate - call this LAST when the task is fully complete. CRITICAL RULES FOR TOOL RESULTS: After every tool call, READ the actual returned content. Extract the specific information the user needs (real numbers, facts, names, URLs) and present it clearly. Never say 'I have searched' or 'I gathered info' without showing the actual content. For images, always render with markdown ![](URL). For files, always provide a clickable markdown link [描述](path). For text data, summarize in the user's language. Only after presenting concrete results to the user, call doTerminate. 你是 JiManus 自主智能体，将复杂任务分解为步骤并使用工具完成。重要规则：每次调用工具后必须读取返回的实际内容，提取用户需要的具体信息（真实数字、事实、URL），用 markdown 格式呈现：图片用 ![描述](URL) 嵌入显示；PDF 等文件用 [点击下载](路径) 链接；文字数据用用户语言总结。任务完整完成后才调用 doTerminate。}"
+      next-step: "${PROMPT_MANUS_NEXT_STEP:Review the tool results from the previous step. DECISION TREE: (a) If you have enough concrete information to fully answer the user's request, write a final response presenting the actual data: render image URLs with ![](URL), file paths with [点击下载](path), text data with a clear summary - then call doTerminate. (b) If the task needs another step (e.g., you searched but need to scrape a specific URL, or you found info but still need to generate a PDF), call the appropriate tool next. (c) If you are stuck or the previous tool failed, try a different approach or tool. Always reply in the user's language. Always render URLs as markdown links/images, never as plain text. 审查上一步工具结果。如果信息足够回答用户：用 markdown 格式（图片 ![](URL)、链接 [](path)、文字总结）呈现实际数据，然后调用 doTerminate；如果任务还需更多步骤：调用下一个合适的工具；如果卡住：换一种方法。始终用 markdown 格式输出 URL，不要纯文本显示。}"

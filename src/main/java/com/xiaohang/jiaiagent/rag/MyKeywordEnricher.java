@@ -15,10 +15,10 @@ import java.util.List;
 public class MyKeywordEnricher {
 
     @Resource
-    private ChatModel dashscopeChatModel;
+    private ChatModel chatModel;
 
     public List<Document> enrichDocuments(List<Document> documents) {
-        KeywordMetadataEnricher keywordMetadataEnricher = new KeywordMetadataEnricher(dashscopeChatModel, 5);
+        KeywordMetadataEnricher keywordMetadataEnricher = new KeywordMetadataEnricher(chatModel, 5);
         return  keywordMetadataEnricher.apply(documents);
     }
 }

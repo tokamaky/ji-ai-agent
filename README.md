@@ -1,536 +1,429 @@
-# Ji-AI-Agent
+<div align="center">
 
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.13-brightgreen?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-21-blue?style=flat-square&logo=openjdk)](https://www.oracle.com/java/)
-[![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0.4-brightgreen?style=flat-square)](https://spring.io/projects/spring-ai)
+# 🤖 Ji-AI-Agent
+
+### A Production-Grade Multi-Agent AI System Built with Spring Boot
+
+**Java-first AI agent framework with tool-calling, RAG, MCP, and SSE streaming — deployed on Railway.**
+
+[![Live Demo](https://img.shields.io/badge/🚀_LIVE_DEMO-Try_It_Now-success?style=for-the-badge)](https://frontend-production-5bc7.up.railway.app)
+[![API Docs](https://img.shields.io/badge/API-Swagger-blue?style=for-the-badge&logo=swagger)](https://backend-production-bab0.up.railway.app/api/swagger-ui/index.html)
+
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.13-6DB33F?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk)](https://www.oracle.com/java/)
+[![Spring AI](https://img.shields.io/badge/Spring_AI-1.1.4-6DB33F?style=flat-square)](https://spring.io/projects/spring-ai)
+[![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?style=flat-square&logo=google)](https://ai.google.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL_+_pgvector-336791?style=flat-square&logo=postgresql)](https://github.com/pgvector/pgvector)
+[![Railway](https://img.shields.io/badge/Deployed_on-Railway-0B0D0E?style=flat-square&logo=railway)](https://railway.app)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-A production-ready Java/Spring Boot AI Agent framework. Ji-AI-Agent combines Google Vertex AI Gemini 2.5 Flash Lite with tool-calling, RAG (Retrieval-Augmented Generation), and MCP (Model Context Protocol) to build autonomous AI agents that can reason, plan, and act. It ships with a complete demo application and is designed for real-world deployment — not a toy demo.
+</div>
 
 ---
 
-## Table of Contents
+## ✨ Try It Live
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [LoveApp vs JiManus](#loveapp-vs-jimanus)
-- [Built-in Tools](#built-in-tools)
-- [Quick Start](#quick-start)
-- [API Reference](#api-reference)
-- [MCP Integration](#mcp-integration)
-- [Project Structure](#project-structure)
+🌐 **Live URL**: **https://frontend-production-5bc7.up.railway.app**
 
----
+Just open the link and chat — no signup required. Try these prompts:
 
-## Features
-
-- **ReAct Pattern** — Agents think before acting. Each step the LLM decides whether to call a tool or respond directly.
-- **Tool-Calling Agent** — JiManus can use 7 built-in tools (file, search, scrape, download, terminal, PDF, terminate) to solve complex tasks autonomously.
-- **RAG Ready** — Built-in vector store support (SimpleVectorStore in-memory or PostgreSQL + PGVector) with query rewriting via `RewriteQueryTransformer`.
-- **MCP Support** — Integrates with external MCP (Model Context Protocol) servers for standardized tool extension.
-- **SSE Streaming** — Real-time token-by-token and event-by-event streaming via SseEmitter.
-- **Complete Demo** — `LoveApp` demonstrates every capability: basic chat, structured output, RAG, tools, and MCP.
-- **Java-first** — Built entirely in Java with Spring Boot. No Python, no LangChain dependency.
+| What to Try | What Happens |
+|---|---|
+| `"hello"` (English) | AI responds in English with relationship advice |
+| `"你好"` (Chinese) | AI responds in Chinese — language auto-detected |
+| `"帮我搜一张约会的照片"` | Calls **MCP image search tool** → renders 3+ Pexels images inline |
+| `"请说一句爱情谚语并生成 PDF"` | Calls **PDF tool** → returns clickable download link |
+| Switch to **Manus** tab → `"搜索渥太华 5 公里内的景点并制作游玩计划 PDF"` | Multi-step agent: web search → scrape → PDF → download |
 
 ---
 
-## Architecture
+## 🎯 What Makes This Project Stand Out
 
-### Class Inheritance Hierarchy
+This isn't a "hello world" tutorial project. It's a **production-deployed**, **multi-service** AI system showcasing real engineering choices:
 
-Ji-AI-Agent follows a 4-level abstract class inheritance chain for the agent framework:
+- 🏗️ **Multi-Agent Architecture** — Two distinct agents (LoveApp + JiManus) built on a 4-level abstract class hierarchy demonstrating the **ReAct pattern**
+- 🛠️ **8 Built-in Tools + MCP Integration** — Tool-calling agents that actually do things: search the web, scrape pages, generate PDFs, download files, execute shell commands
+- 🔌 **Model Context Protocol (MCP)** — Independent MCP server (image search) deployed as a separate microservice, demonstrating standardized AI tool extension
+- 📚 **RAG with Query Rewriting** — `RewriteQueryTransformer` improves retrieval quality via PostgreSQL + pgvector (768-dim embeddings)
+- 🌐 **Full Internationalization** — Migrated from Alibaba DashScope to Google Gemini API; AI auto-detects user language and responds accordingly
+- ⚙️ **12-Factor Configuration** — All prompts externalized via environment variables; can hot-update AI behavior without redeploying
+- 🚀 **Production Deployment** — 4-service architecture deployed on Railway: backend + MCP server + frontend (Nginx) + PostgreSQL + pgvector
+- 🔄 **SSE Streaming** — Real-time token-by-token output with proper proxy buffering bypass for Nginx reverse proxy
+
+---
+
+## 📐 System Architecture
+
+```mermaid
+flowchart LR
+    User["👤 User Browser"]
+    Frontend["🌐 Frontend Service<br/>React + Vite + Nginx<br/>Reverse Proxy"]
+    Backend["☕ Backend Service<br/>Spring Boot 3.5 + Java 21<br/>LoveApp + JiManus Agents"]
+    MCP["🔌 MCP Server Service<br/>Image Search Tool<br/>Pexels API"]
+    DB[("🐘 PostgreSQL + pgvector<br/>RAG Vector Store")]
+    Gemini["☁️ Google Gemini API<br/>Chat + Embedding"]
+    Pexels["🖼️ Pexels API"]
+    SearchAPI["🔎 SearchAPI.io"]
+
+    User -->|HTTPS| Frontend
+    Frontend -->|HTTPS Reverse Proxy<br/>SSE Streaming| Backend
+    Backend -->|MCP/SSE| MCP
+    Backend -->|JDBC| DB
+    Backend -->|REST| Gemini
+    Backend -->|REST| SearchAPI
+    MCP -->|REST| Pexels
+
+    style Frontend fill:#bbdefb
+    style Backend fill:#c8e6c9
+    style MCP fill:#fff9c4
+    style DB fill:#ffccbc
+    style Gemini fill:#d1c4e9
+```
+
+All services are deployed independently on Railway and communicate via internal/public networking.
+
+---
+
+## 🧠 Two Agents, Two Patterns
+
+### 🩷 LoveApp — Conversational Expert
+
+A relationship counseling AI built directly on Spring AI's `ChatClient`:
+- Maintains multi-turn memory via `MessageWindowChatMemory` (sliding window of 20 messages)
+- Auto-detects user language (Chinese ↔ English)
+- Has access to **all 8 tools** (PDF generation, image search via MCP, web search, etc.)
+- Streams responses token-by-token via SSE
+
+### 🦾 JiManus — Autonomous ReAct Agent
+
+A general-purpose autonomous agent that **plans and executes complex multi-step tasks**:
+- Built on a 4-level abstract class hierarchy: `BaseAgent` → `ReActAgent` → `ToolCallAgent` → `JiManus`
+- Uses the **ReAct pattern**: Think → Act → Observe → Repeat (max 20 steps)
+- Streams every intermediate step (`thinking`, `tool_call`, `tool_result`) to the frontend via SSE
+- Spring `@Scope("prototype")` + `ObjectProvider` for **per-request isolation** (no state leakage between concurrent users)
+- Smart termination: explicit `doTerminate` tool, 3-step no-tool fallback, or 20-step cap
+
+#### Class Hierarchy
 
 ```mermaid
 flowchart TD
-    subgraph AgentFramework["Agent Framework"]
-        A["BaseAgent (abstract)"]
-        B["ReActAgent (abstract)"]
-        C["ToolCallAgent"]
-        D["JiManus"]
-    end
-    subgraph ApplicationLayer["Application Layer (separate)"]
-        E["LoveApp (@Component)"]
-    end
+    A["BaseAgent (abstract)<br/>State machine + SSE + step loop"]
+    B["ReActAgent (abstract)<br/>think() / act() pattern"]
+    C["ToolCallAgent<br/>LLM tool-calling integration"]
+    D["JiManus (@Component @Scope prototype)<br/>Production-ready agent"]
 
-    A -->|"extends"| B
-    B -->|"extends"| C
-    C -->|"extends"| D
-    E -.->|"uses ChatClient directly,\nno step loop"| A
+    A -->|extends| B
+    B -->|extends| C
+    C -->|extends| D
 
     style A fill:#e1f5fe
     style B fill:#e1f5fe
     style C fill:#fff3e0
     style D fill:#e8f5e9
-    style E fill:#fce4ec
 ```
 
-#### BaseAgent (abstract)
-
-The root abstract class. Manages:
-
-- **Agent state**: `IDLE` → `RUNNING` → `FINISHED` / `ERROR`
-- **SSE streaming**: `runStream()` creates an `SseEmitter` with 5-minute timeout, sends events asynchronously via `CompletableFuture`
-- **Message history**: `List<Message>` (messageList) for conversation context
-- **Step-loop execution**: `run()` loops from step 1 to `maxSteps` calling `step()`; `runStream()` uses a for-loop with `sseClosed` flag guard
-- **SSE event sending**: `sendSSE(jsonMessage)`, `sendFinalResponseAndStop(content)` which marks the SSE as closed and throws `IllegalStateException` to break the loop
-- **Cleanup hook**: `cleanup()` called in `finally` block
-
-Subclasses must implement `step()`.
-
-#### ReActAgent (abstract)
-
-Implements the ReAct (Reasoning + Acting) pattern:
-
-- `think()` — abstract method, returns `boolean` (whether to act)
-- `act()` — abstract method, returns `String` (action result)
-- `step()` calls `think()` first; if `shouldAct=true`, then calls `act()`
-- If `think()` sets state to `FINISHED`, `step()` skips sending a duplicate `final_response`
-- If SSE connection closes, `IllegalStateException` propagates up to break the loop
-
-#### ToolCallAgent
-
-Handles LLM tool-calling:
-
-- Receives `ToolCallback[] availableTools` in the constructor
-- `think()` calls the LLM with `toolCallbacks` enabled, parses tool calls from the `AssistantMessage`
-- Sends `{ "type": "tool_call" }` events via SSE for each tool the LLM decides to use
-- `act()` calls `ToolCallingManager.executeToolCalls()` to execute the tools
-- Sends `{ "type": "tool_result" }` events via SSE for each tool's return value
-- Tracks `noToolCallCount` — 3 consecutive non-tool steps triggers forced termination
-- Records `lastThinkingText` for final response fallback
-- `generateFinalSummary()` makes an extra LLM call to produce a user-friendly summary when the task ends without thinking text
-- Sets `internalToolExecutionEnabled(false)` to disable Spring AI's built-in tool execution, managing the loop manually
-
-#### JiManus
-
-A ready-to-use general-purpose super agent:
-
-- Max 20 steps per task (`setMaxSteps(20)`)
-- All 7 built-in tools available at all times
-- Only SSE streaming output (`runStream()` method)
-- System prompt: acts as an all-capable AI assistant that breaks tasks into steps and calls `doTerminate` when done
-- Next step prompt: decides whether to continue or call `doTerminate`
-- Terminates via: `doTerminate` tool, 3x no-tool calls, max steps, or LLM stops calling tools
-- If `doTerminate` is called: uses `lastThinkingText` as final response; otherwise calls `generateFinalSummary()`
-
-#### LoveApp
-
-**Not part of the agent inheritance chain.** A separate `@Component` that uses Spring AI `ChatClient` directly:
-
-- Uses `MessageWindowChatMemory` (max 20 messages) with `MessageChatMemoryAdvisor` for multi-turn conversation via `chatId`
-- Acts as a love psychology expert via `SYSTEM_PROMPT`
-- Has 6 distinct chat methods covering basic chat, structured output, RAG, tools, and MCP
-- Does **not** use the `BaseAgent` step-loop — it is a higher-level app built on top of Spring AI
-
-### System Architecture
-
-```mermaid
-flowchart LR
-    Client["Client / Frontend"]
-    Controller["AiController\n/ai/*"]
-    AppLayer["Application Layer\nLoveApp | JiManus"]
-    Framework["Agent Framework\nBaseAgent -> ReActAgent -> ToolCallAgent"]
-    ToolLayer["Tool Layer\n7 Built-in Tools + MCP Client"]
-    External["External Services\nVertex AI Gemini | PGVector | SearchAPI.io | Image Search MCP"]
-
-    Client -->|"HTTP / SSE"| Controller
-    Controller --> AppLayer
-    AppLayer --> Framework
-    Framework --> ToolLayer
-    ToolLayer --> External
-
-    style Controller fill:#bbdefb
-    style AppLayer fill:#c8e6c9
-    style Framework fill:#fff9c4
-    style ToolLayer fill:#ffccbc
-    style External fill:#d1c4e9
-```
-
----
-
-## LoveApp vs JiManus
-
-Both are `@Component` beans, but they serve very different purposes.
-
-### Side-by-Side Comparison
-
-| Aspect | LoveApp | JiManus |
-|--------|---------|---------|
-| Class type | `@Component` (app-layer) | `@Component extends ToolCallAgent` (framework-layer) |
-| Role | Love counseling expert | General-purpose AI assistant |
-| Memory | `MessageWindowChatMemory` (20 msgs) | `List<Message>` in `BaseAgent` |
-| Multi-turn | Yes (via `chatId`) | Yes (via `messageList`) |
-| Basic chat | `doChat`, `doChatByStream` | No |
-| Structured output | `doChatWithReport` → `LoveReport` POJO | No |
-| RAG | `doChatWithRag` | No |
-| Tool calling | `doChatWithTools` | Always available |
-| MCP | `doChatWithMcp` | No |
-| SSE streaming | Partial (basic chat only) | Full (all event types) |
-| Max steps | N/A (single/multi-turn) | 20 steps |
-| Termination logic | N/A | 4 conditions |
-
-### LoveApp — 6 Chat Methods
-
-```
-Method 1: doChat(message, chatId) -> String
-  Basic multi-turn chat. Uses MessageChatMemoryAdvisor with chatId.
-  No tools, no RAG. Returns a single String response.
-
-Method 2: doChatByStream(message, chatId) -> Flux<String>
-  SSE streaming basic chat. Returns Flux<String> for real-time
-  token-by-token output. Same memory and role as doChat.
-
-Method 3: doChatWithReport(message, chatId) -> LoveReport
-  Structured output using .entity(LoveReport.class) to get a
-  typed POJO instead of raw text. Returns a LoveReport record:
-  record LoveReport(String title, List<String> suggestions) {}
-
-Method 4: doChatWithRag(message, chatId) -> String
-  RAG-enhanced chat. First calls QueryRewriter.doQueryRewrite(message)
-  which uses RewriteQueryTransformer (Spring AI) to rewrite the user
-  query into a more retrieval-friendly form. Then searches
-  loveAppVectorStore via QuestionAnswerAdvisor. Supports SimpleVectorStore
-  (in-memory) and pgVectorVectorStore (PostgreSQL + PGVector).
-  Embedding model: text-embedding-005. Returns a String answer.
-
-Method 5: doChatWithTools(message, chatId) -> String
-  Enables all 7 built-in tools via .toolCallbacks(allTools).
-  The LLM decides which tools to call. Returns a String.
-
-Method 6: doChatWithMcp(message, chatId) -> String
-  Enables MCP client via .toolCallbacks(toolCallbackProvider).
-  The LLM can call external MCP services (e.g., the
-  ji-image-search-mcp-server submodule). Returns a String.
-```
-
-### LoveApp — RAG Knowledge Base
-
-- **Location**: `src/main/resources/document/` — 3 Markdown files covering Single Life Q&A, Dating Q&A, Married Life Q&A
-- **Query Rewriting**: `QueryRewriter` uses `RewriteQueryTransformer` (Spring AI) to transform the user's query before vector search
-- **Vector Store**: `loveAppVectorStore` (SimpleVectorStore, 768 dimensions, COSINE distance). Can switch to `pgVectorVectorStore` (PGVector) via configuration
-- **Embedding Model**: Vertex AI `text-embedding-005`
-
-### JiManus — SSE Event Lifecycle
+#### JiManus Lifecycle
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant AiController
-    participant BaseAgent
-    participant ReActAgent
-    participant ToolCallAgent
-    participant ToolCallingManager
+    participant Controller as AiController
+    participant Agent as JiManus
+    participant LLM as Gemini API
+    participant Tools as Tool Layer
 
-    Client->>+AiController: GET /api/manus/chat?message=...
-    AiController->>+BaseAgent: new JiManus(allTools, chatModel)
-    AiController->>BaseAgent: runStream(message)
-    BaseAgent->>BaseAgent: create SseEmitter (5min timeout)
-    BaseAgent->>BaseAgent: CompletableFuture runs step loop
+    Client->>+Controller: GET /api/ai/manus/chat?message=...
+    Controller->>+Agent: provider.getObject() (new prototype instance)
+    Controller->>Agent: runStream(message)
+    Agent->>Agent: Create SseEmitter (5min timeout)
 
-    loop For each step (max 20)
-        BaseAgent->>+ReActAgent: step()
-        ReActAgent->>+ToolCallAgent: think()
-        ToolCallAgent->>ToolCallAgent: LLM call with toolCallbacks
-        ToolCallAgent-->>Client: SSE: {"type":"tool_call", "toolName":"...", "args":{...}}
+    loop Up to 20 steps
+        Agent->>+LLM: think() with toolCallbacks
+        LLM-->>-Agent: AssistantMessage (with optional tool_calls)
+        Agent-->>Client: SSE: {type:"tool_call", toolName:"...", args:{...}}
 
-        alt no tool calls, step == 1
-            ToolCallAgent-->>Client: SSE: {"type":"final_response"}
-        else tool calls exist
-            ReActAgent->>ToolCallAgent: act()
-            ToolCallAgent->>+ToolCallingManager: executeToolCalls()
-            ToolCallingManager-->>-ToolCallAgent: tool result
-            ToolCallAgent-->>Client: SSE: {"type":"tool_result", "toolName":"...", "result":"..."}
-        else no tool calls, step > 1
-            ToolCallAgent: increment noToolCallCount
-            alt noToolCallCount >= 3
-                ToolCallAgent-->>Client: SSE: {"type":"final_response"}
-            else doTerminate called
-                ToolCallAgent-->>Client: SSE: {"type":"final_response"}
-                ToolCallAgent-->>Client: [DONE]
+        alt Tools requested
+            Agent->>+Tools: act() → executeToolCalls()
+            Tools-->>-Agent: ToolResponse (JSON)
+            Agent-->>Client: SSE: {type:"tool_result", result:"..."}
+        else No tools (3rd consecutive)
+            Agent->>Agent: Force terminate
+        else doTerminate called
+            Agent-->>Client: SSE: {type:"final_response", content:"..."}
         end
     end
 
-    BaseAgent-->>-Client: SseEmitter completes or times out
-```
-
-All SSE events are JSON strings with a `type` field:
-
-```json
-{ "type": "thinking",       "content": "..." }
-{ "type": "tool_call",      "toolName": "...", "args": { ... } }
-{ "type": "tool_result",    "toolName": "...", "result": "..." }
-{ "type": "final_response", "content": "..." }
-{ "type": "error",          "error": "..." }
-```
-
-### JiManus — Termination Logic
-
-JiManus stops when **any** of these conditions are met:
-
-1. The AI calls the `doTerminate` tool → state set to `FINISHED`, `lastThinkingText` sent as `final_response`
-2. No thinking text produced → calls `generateFinalSummary()` (extra LLM call) for a user-friendly summary
-3. 3 consecutive steps where the AI calls no tools → forced termination
-4. Max 20 steps reached → `FINISHED` state, error message sent via SSE
-
-### LoveApp — Chat Mode Selection
-
-```mermaid
-flowchart TD
-    Input["User Input"]
-    Basic["Basic Chat?"]
-    Report["Need Report?"]
-    Knowledge["Need Knowledge?"]
-    Tools["Need Tools?"]
-    MCP["Need MCP?"]
-
-    doChat["doChat() → String"]
-    doChatByStream["doChatByStream() → Flux<String>"]
-    doChatWithReport["doChatWithReport() → LoveReport POJO"]
-    doChatWithRag["doChatWithRag() → QueryRewriter → VectorStore"]
-    doChatWithTools["doChatWithTools() → 7 Built-in Tools"]
-    doChatWithMcp["doChatWithMcp() → MCP External Server"]
-
-    Input --> Basic
-    Basic -->|"Yes"| doChat
-    Basic -->|"No"| Report
-    Report -->|"Yes"| doChatWithReport
-    Report -->|"No"| Knowledge
-    Knowledge -->|"Yes"| doChatWithRag
-    Knowledge -->|"No"| Tools
-    Tools -->|"Yes"| doChatWithTools
-    Tools -->|"No"| MCP
-    MCP -->|"Yes"| doChatWithMcp
-    MCP -->|"No"| doChatByStream
-
-    style doChat fill:#e3f2fd
-    style doChatByStream fill:#e3f2fd
-    style doChatWithReport fill:#fff3e0
-    style doChatWithRag fill:#f3e5f5
-    style doChatWithTools fill:#e8f5e9
-    style doChatWithMcp fill:#fce4ec
+    Agent-->>-Client: SSE complete or [DONE]
 ```
 
 ---
 
-## Built-in Tools
+## 🛠️ Built-in Tools
 
-All 7 tools are registered in `ToolRegistration.java` and passed to `JiManus` as `ToolCallback[]`:
+All tools are auto-registered via `ToolRegistration.java` and available to both agents.
 
-| Tool | Method | Description |
-|------|--------|-------------|
-| **FileOperationTool** | `readFile(fileName)` / `writeFile(fileName, content)` | Read from and write to local files. Use when the user wants to save data or read saved files. |
-| **WebSearchTool** | `searchWeb(query)` | Real-time Google search via SearchAPI.io. Use when the user asks about current information, news, or facts. |
-| **WebScrapingTool** | `scrapeWebPage(url)` | Parse and extract content from web pages using Jsoup (max 5000 chars). Use after WebSearchTool to get page details. |
-| **ResourceDownloadTool** | `downloadResource(url, fileName)` | Download files from URLs to disk. Use when the user wants to save an image, document, or any URL resource. |
-| **TerminalOperationTool** | `executeTerminalCommand(command)` | Execute Windows/macOS/Linux shell commands. Use when the user wants to run scripts, compile code, or execute system commands. |
-| **PDFGenerationTool** | `generatePDF(fileName, content)` | Generate PDF documents with CJK (Chinese) font support using iText 9.0.0 and NotoSansCJKsc. Use when the user wants a PDF report or document. |
-| **TerminateTool** | `doTerminate()` | Explicitly end the agent task. Called by the LLM when all steps are complete. |
+| Tool | Description | Real Use Case |
+|---|---|---|
+| 🖼️ **searchImage** (MCP) | Fetch image URLs from Pexels via MCP protocol | "Show me romantic dinner ideas" → returns 3+ inline images |
+| 🌐 **searchWeb** | Real-time Google search via SearchAPI.io | "What's the latest Java release?" |
+| 📄 **scrapeWebPage** | Extract page content with Jsoup (max 5KB) | Follow-up after `searchWeb` for full content |
+| 📥 **downloadResource** | Download any URL to disk | Save an image/document |
+| 📝 **readFile / writeFile** | File I/O operations | Save and reload conversation context |
+| 💻 **executeTerminalCommand** | Cross-platform shell execution | Run scripts, compile code |
+| 📑 **generatePDF** | iText 9.0 + NotoSansCJK font for proper Chinese rendering | Generate downloadable reports |
+| 🛑 **doTerminate** | Explicit task completion signal | Called by LLM when task is done |
 
-All tool responses return JSON strings wrapped by `ToolResponse`:
-
+All tools return standardized `ToolResponse`:
 ```json
 { "status": "success", "message": "...", "data": ... }
-{ "status": "error",   "message": "..." }
 ```
 
 ---
 
-## Quick Start
+## ⚡ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Backend Runtime** | Java 21, Spring Boot 3.5.13 |
+| **AI Framework** | Spring AI 1.1.4 |
+| **LLM** | Google Gemini 2.5 Flash Lite (via Gemini Developer API) |
+| **Embedding** | `gemini-embedding-001` (768-dim with Matryoshka truncation) |
+| **Vector Store** | PostgreSQL 15 + pgvector (HNSW index, COSINE distance) |
+| **MCP** | `spring-ai-starter-mcp-client` + `spring-ai-starter-mcp-server-webmvc` |
+| **PDF** | iText 9.0 with embedded NotoSansCJK font |
+| **HTTP Parsing** | Jsoup 1.21 |
+| **API Docs** | Knife4j (Swagger 3) |
+| **Frontend** | React 18 + TypeScript + Vite + TailwindCSS + react-markdown |
+| **Reverse Proxy** | Nginx 1.27 with envsubst-templated configuration |
+| **Containerization** | Multi-stage Docker builds (Maven + JRE) |
+| **Deployment** | Railway (4 services with private networking) |
+
+---
+
+## 🏗️ Engineering Highlights
+
+### 1. Prompt as Configuration (12-Factor Compliant)
+
+All system prompts are externalized via environment variables. Change AI personality on Railway without rebuilding:
+
+```yaml
+app:
+  prompts:
+    love-app:
+      system: ${PROMPT_LOVE_APP:You are an expert in relationship psychology...}
+    manus:
+      system: ${PROMPT_MANUS_SYSTEM:You are JiManus, an autonomous AI agent...}
+```
+
+### 2. Prototype-Scoped Agent Beans
+
+Agents have **per-request state** (`messageList`, `currentStep`, `sseEmitter`). Single-scoped beans would corrupt data when concurrent users hit the API.
+
+```java
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class JiManus extends ToolCallAgent { ... }
+
+// Controller
+@Resource
+private ObjectProvider<JiManus> jiManusProvider;  // Lookup pattern
+
+@GetMapping("/manus/chat")
+public SseEmitter doChatWithManus(String message) {
+    return jiManusProvider.getObject().runStream(message);  // Fresh instance per request
+}
+```
+
+### 3. Nginx SSE-Aware Reverse Proxy
+
+SSE streams require special Nginx config to bypass buffering:
+
+```nginx
+location /api/ {
+    set $backend ${BACKEND_INTERNAL_URL};
+    proxy_pass $backend;
+
+    proxy_buffering off;          # Critical for SSE
+    proxy_cache off;
+    proxy_read_timeout 3600s;     # Long-lived connections
+    chunked_transfer_encoding off;
+}
+```
+
+### 4. MCP Microservice Pattern
+
+Image search lives in a **separate Spring Boot module** (`ji-image-search-mcp-server`), connected via MCP protocol. This demonstrates clean service decomposition — tools are independently deployable, scalable, and replaceable.
+
+### 5. Smart Tool Use via Prompt Engineering
+
+Carefully crafted prompts ensure the LLM:
+- Calls `searchImage` and renders results as `![](URL)` markdown (not just describing them in text)
+- Calls `generatePDF` and returns `[点击下载](path)` clickable links
+- Doesn't get stuck asking clarifying questions when the user explicitly requests an action
+
+---
+
+## 🚀 Quick Start (Local Development)
 
 ### Prerequisites
 
-- **JDK 21**
-- **Maven 3.9+**
-- **PostgreSQL 15+** with the `pgvector` extension enabled
-- **Google Vertex AI** credentials configured (service account key)
+- JDK 21 + Maven 3.9+
+- PostgreSQL 15+ with `pgvector` extension
+- A Google AI Studio API Key ([free tier here](https://aistudio.google.com/apikey))
+- A Pexels API Key (for image search) — [free tier](https://www.pexels.com/api/)
+- Node.js 20+ (for frontend dev)
 
-### Environment Variables
+### 1. Configure Environment
 
 ```bash
-export SEARCH_API_KEY="your-searchapi-io-key"
-export MCP_IMAGE_SEARCH_URL="http://localhost:8127"   # optional, default
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+export GEMINI_API_KEY="your-gemini-key"
+export PEXELS_API_KEY="your-pexels-key"
+export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/ai_project"
+export SPRING_DATASOURCE_USERNAME="postgres"
+export SPRING_DATASOURCE_PASSWORD="your-password"
 ```
 
-### Database Setup
+### 2. Setup Database
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS vector;
 CREATE DATABASE ai_project;
+\c ai_project
+CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-### Configuration
-
-Key settings in `application.yml`:
-
-```yaml
-server:
-  port: 8123
-  servlet:
-    context-path: /api
-
-spring:
-  ai:
-    vertex:
-      ai:
-        gemini:
-          chat:
-            options:
-              model: gemini-2.5-flash-lite
-        embedding:
-          text:
-            options:
-              model: text-embedding-005
-  vectorstore:
-    pgvector:
-      index-type: HNSW
-      dimensions: 768
-      distance-type: COSINE_DISTANCE
-      initialize-schema: true
-  datasource:
-    url: jdbc:postgresql://localhost:5432/ai_project
-
-search:
-  api-key: ${SEARCH_API_KEY}
-```
-
-### Build & Run
+### 3. Run Services (3 terminals)
 
 ```bash
-# Build
-mvn clean package -DskipTests
+# Terminal 1 — MCP Image Search Server (port 8127)
+cd ji-image-search-mcp-server
+mvn spring-boot:run
 
-# Run
-java -jar target/ji-ai-agent-0.0.1-SNAPSHOT.jar
+# Terminal 2 — Main Backend (port 8123)
+cd ..
+mvn spring-boot:run
 
-# API Documentation
-open http://localhost:8123/api/swagger-ui.html
+# Terminal 3 — Frontend Dev Server (port 3001)
+cd ji-ai-agent-frontend/frontend
+npm install
+npm run dev
 ```
+
+Open http://localhost:3001 and start chatting!
 
 ---
 
-## API Reference
+## 🚢 Deployment to Railway
+
+The entire system is designed for [Railway](https://railway.app) deployment:
+
+```
+Railway Project
+├── 🐘 PostgreSQL  (with pgvector pre-installed)
+├── ☕ backend       (Dockerfile.backend, port 8080)
+├── 🔌 mcp-server   (ji-image-search-mcp-server/Dockerfile, port 8080)
+└── 🌐 frontend    (Dockerfile, Nginx + React build, port 8080)
+```
+
+Each service has its own `Dockerfile` and `.dockerignore`. Communication uses Railway's **internal networking** (`*.railway.internal`) for backend-to-MCP, and **public HTTPS** for frontend-to-backend reverse proxy.
+
+Required Railway environment variables:
+
+| Service | Variables |
+|---|---|
+| `backend` | `GEMINI_API_KEY`, `PEXELS_API_KEY`, `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `MCP_IMAGE_SEARCH_URL`, `GEMINI_CHAT_MODEL`, `GEMINI_EMBEDDING_MODEL` |
+| `mcp-server` | `PEXELS_API_KEY` |
+| `frontend` | `BACKEND_INTERNAL_URL`, `PORT` |
+
+---
+
+## 📡 API Reference
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/ai/love_app/chat/sync` | GET | Synchronous LoveApp chat. Returns a plain String response. |
-| `/api/ai/love_app/chat/sse` | GET | SSE streaming via `Flux<String>` (Spring's reactive stream). Produces `text/event-stream`. |
-| `/api/ai/love_app/chat/server_sent_event` | GET | SSE via Spring's `ServerSentEvent` wrapper. Same as above but with event metadata. |
-| `/api/ai/love_app/chat/sse_emitter` | GET | SSE via `SseEmitter` with 3-minute timeout. Subscribe pattern for server-push. |
-| `/api/ai/manus/chat` | GET | JiManus agent — SSE via `SseEmitter` with 5-minute timeout. Parameters: `message`. |
-| `/api/swagger-ui.html` | GET | Knife4j API documentation (Swagger UI). |
+|---|---|---|
+| `/api/ai/love_app/chat/sse` | GET | LoveApp SSE streaming chat |
+| `/api/ai/love_app/chat/sync` | GET | LoveApp synchronous chat |
+| `/api/ai/manus/chat` | GET | JiManus autonomous agent (SSE) |
+| `/api/files/pdf/{filename}` | GET | Download generated PDF |
+| `/api/files/download/{type}/{filename}` | GET | Download generated files |
+| `/api/swagger-ui/index.html` | GET | Interactive API documentation |
 
-### LoveApp Query Parameters
-
-```
-?message=What%20is%20your%20advice%3F&chatId=user123
-```
-
-### JiManus Query Parameters
-
-```
-?message=Search%20for%20the%20latest%20Java%20news%20and%20save%20a%20PDF%20report
-```
+Query params: `?message=<text>&chatId=<uuid>`
 
 ---
 
-## MCP Integration
-
-`ji-image-search-mcp-server` is a **separate Spring Boot submodule** that exposes an `ImageSearchTool` via the MCP (Model Context Protocol) on port **8127**.
-
-- It uses `MethodToolCallbackProvider` to expose the tool
-- LoveApp can call it via `doChatWithMcp(message, chatId)`
-- The MCP client in `application.yml` connects via SSE:
-
-```yaml
-spring:
-  ai:
-    vertex:
-      mcp:
-        client:
-          sse:
-            connections:
-              server1:
-                url: ${MCP_IMAGE_SEARCH_URL:http://localhost:8127}
-```
-
-To run the MCP server independently:
-
-```bash
-cd ji-image-search-mcp-server
-mvn clean package -DskipTests
-java -jar target/ji-image-search-mcp-server-*.jar
-```
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 ji-ai-agent/
-├── pom.xml
-├── README.md
-├── src/main/
-│   ├── java/com/xiaohang/jiaiagent/
-│   │   ├── JiAiAgentApplication.java
-│   │   ├── agent/                          # Agent framework
-│   │   │   ├── BaseAgent.java              # Abstract root — state, SSE, step loop
-│   │   │   ├── ReActAgent.java             # Abstract — think/act pattern
-│   │   │   ├── ToolCallAgent.java          # Tool-calling implementation
-│   │   │   ├── JiManus.java                # Ready-to-use super agent
-│   │   │   └── model/
-│   │   │       ├── AgentState.java         # IDLE / RUNNING / FINISHED / ERROR
-│   │   │       └── AgentSSEMessage.java    # SSE JSON event builders
-│   │   ├── app/                            # Application-layer agents
-│   │   │   └── LoveApp.java               # Love counseling expert (6 chat methods)
-│   │   ├── controller/
-│   │   │   └── AiController.java           # REST endpoints for LoveApp and JiManus
-│   │   ├── tools/                          # Built-in tools
-│   │   │   ├── ToolRegistration.java      # Centralized ToolCallback[] bean
-│   │   │   ├── ToolResponse.java          # JSON response wrapper
-│   │   │   ├── FileOperationTool.java
-│   │   │   ├── WebSearchTool.java
-│   │   │   ├── WebScrapingTool.java
-│   │   │   ├── ResourceDownloadTool.java
-│   │   │   ├── TerminalOperationTool.java
-│   │   │   ├── PDFGenerationTool.java
-│   │   │   └── TerminateTool.java
-│   │   ├── rag/
-│   │   │   └── QueryRewriter.java          # RewriteQueryTransformer wrapper
-│   │   ├── advisor/
-│   │   │   └── MyLoggerAdvisor.java        # Request/response logging advisor
-│   │   └── constant/
-│   │       └── FileConstant.java           # Shared file path constants
-│   └── resources/
-│       ├── application.yml
-│       ├── fonts/
-│       │   └── NotoSansCJKsc-Regular.otf   # CJK font for PDF generation
-│       └── document/                        # RAG knowledge base
-│           ├── 单身问答.md
-│           ├── 恋爱问答.md
-│           └── 已婚问答.md
+├── 📄 Dockerfile                      # Frontend Dockerfile (root for Railway build context)
+├── 📄 Dockerfile.backend              # Main backend (Spring Boot)
+├── 📄 nginx.conf.template             # Nginx config with envsubst variables
+├── 📄 pom.xml                         # Backend dependencies (Spring AI 1.1.4)
 │
-└── ji-image-search-mcp-server/              # Submodule: MCP image search server
-    ├── pom.xml
-    └── src/main/java/com/xiaohang/jiimagesearchmcpserver/
-        ├── JiImageSearchMcpServerApplication.java
-        └── tools/
-            └── ImageSearchTool.java
+├── 📁 src/main/java/com/xiaohang/jiaiagent/
+│   ├── 🚀 JiAiAgentApplication.java
+│   ├── 📁 agent/
+│   │   ├── BaseAgent.java             # Abstract: state, SSE, step-loop
+│   │   ├── ReActAgent.java            # Abstract: think/act pattern
+│   │   ├── ToolCallAgent.java         # LLM tool-calling integration
+│   │   └── JiManus.java               # Production agent (@Scope prototype)
+│   ├── 📁 app/
+│   │   └── LoveApp.java               # Conversational AI (6 chat methods)
+│   ├── 📁 controller/
+│   │   ├── AiController.java          # REST + SSE endpoints
+│   │   └── FileDownloadController.java # PDF / file downloads
+│   ├── 📁 tools/                      # 8 built-in tools
+│   ├── 📁 rag/
+│   │   ├── QueryRewriter.java         # RewriteQueryTransformer
+│   │   ├── LoveAppVectorStoreConfig.java
+│   │   └── PgVectorVectorStoreConfig.java
+│   └── 📁 advisor/
+│       └── MyLoggerAdvisor.java       # Request/response logging
+│
+├── 📁 src/main/resources/
+│   ├── application.yml                # All config externalized via env vars
+│   ├── document/                      # RAG knowledge base (Markdown)
+│   └── fonts/NotoSansCJKsc-Regular.otf
+│
+├── 📁 ji-image-search-mcp-server/     # Independent MCP microservice
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/java/.../tools/
+│       └── ImageSearchTool.java       # Pexels API wrapper
+│
+└── 📁 ji-ai-agent-frontend/frontend/  # React + Vite frontend
+    ├── src/
+    │   ├── components/Markdown.tsx    # react-markdown for AI output rendering
+    │   ├── hooks/useSSE.ts            # SSE consumption
+    │   └── services/                   # API clients
+    └── package.json
 ```
 
 ---
 
-## Tech Stack
+## 🌍 What I Learned Building This
 
-| Component | Technology |
-|-----------|------------|
-| Framework | Spring Boot 3.5.13 |
-| Language | Java 21 |
-| AI | Spring AI 1.0.4, Vertex AI Gemini 2.5 Flash Lite |
-| Embedding | Vertex AI text-embedding-005 |
-| Vector Store | SimpleVectorStore (in-memory) / PGVector (PostgreSQL) |
-| PDF | iText 9.0.0 |
-| HTTP Parsing | Jsoup 1.21.2 |
-| Utilities | Hutool 5.8.44, Lombok |
-| API Docs | Knife4j (Swagger) |
-| Protocol | SSE (Server-Sent Events), MCP (Model Context Protocol) |
+This project was a deep dive into:
+
+- **Spring AI's evolving API surface** — migrated through Spring AI 1.0 → 1.1 with breaking changes (`QuestionAnswerAdvisor.builder()`, `TokenTextSplitter.builder()`)
+- **AI vendor migration** — refactored from Alibaba DashScope to Google Gemini, including embedding model dimension differences (`text-embedding-005` 768-dim Vertex vs `gemini-embedding-001` 3072-dim with Matryoshka truncation to 768)
+- **MCP protocol internals** — debugged async client-server connection timing and SSE transport configuration
+- **Production deployment realities** — Railway's IPv6-only internal DNS, Nginx envsubst template processing, multi-stage Docker builds, BuildKit context cancellation
+- **Concurrent agent state isolation** — discovered why singleton-scoped agents corrupt under concurrent load
+- **Free tier constraints** — Gemini's 20 RPD free tier hits hard for multi-step agents; upgraded to Tier 1 (pay-as-you-go) for stability
+
+---
+
+## 📜 License
+
+MIT — See [LICENSE](LICENSE)
+
+---
+
+<div align="center">
+
+**Built with ☕ and 🤖**
+
+🌐 **[Try the Live Demo](https://frontend-production-5bc7.up.railway.app)** 🌐
+
+</div>

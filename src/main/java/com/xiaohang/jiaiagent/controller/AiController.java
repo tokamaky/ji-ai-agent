@@ -5,6 +5,7 @@ import com.xiaohang.jiaiagent.app.LoveApp;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,11 +23,9 @@ public class AiController {
     @Resource
     private LoveApp loveApp;
 
-    @Resource
-    private ToolCallback[] allTools;
 
     @Resource
-    private ChatModel chatModel;
+    private ObjectProvider<JiManus> jiManusProvider;
 
     /**
      * 同步调用 AI 恋爱大师应用
@@ -99,7 +98,7 @@ public class AiController {
      */
     @GetMapping("/manus/chat")
     public SseEmitter doChatWithManus(String message) {
-        JiManus yuManus = new JiManus(allTools, chatModel);
-        return yuManus.runStream(message);
+        JiManus jiManus = jiManusProvider.getObject();
+        return jiManus.runStream(message);
     }
 }

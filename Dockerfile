@@ -23,6 +23,6 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Railway 注入 PORT；BACKEND_INTERNAL_URL 我们自己设
 # nginx:alpine 的 entrypoint 会自动处理 /etc/nginx/templates/*.template
-EXPOSE 80
+EXPOSE 8080
 
 # 默认 entrypoint 会执行 envsubst 并启动 nginx

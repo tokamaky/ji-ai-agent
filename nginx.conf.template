@@ -1,7 +1,8 @@
 # 前端 Nginx 配置
 # 监听 Railway 注入的 PORT
 server {
-    listen ${PORT};
+    listen ${PORT} default_server;
+    listen [::]:${PORT} default_server;
     server_name _;
 
     root /usr/share/nginx/html;

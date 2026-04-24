@@ -44,7 +44,7 @@ public class PDFGenerationTool {
                 document.add(new Paragraph(content));
             }
             log.info("PDF generated successfully: {}", filePath);
-            return ToolResponse.success("PDF generated successfully to: " + filePath);
+            return ToolResponse.success("PDF generated successfully. Download URL: /api/files/pdf/" + fileName);
         } catch (Exception e) {
             // Log the FULL stack trace so we can see exactly what failed
             log.error("PDF generation failed for file: {}", filePath, e);

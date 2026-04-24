@@ -17,7 +17,13 @@ class MyTokenTextSplitter {
     }
 
     public List<Document> splitCustomized(List<Document> documents) {
-        TokenTextSplitter splitter = new TokenTextSplitter(200, 100, 10, 5000, true);
+        TokenTextSplitter splitter = TokenTextSplitter.builder()
+                .withChunkSize(200)
+                .withMinChunkSizeChars(100)
+                .withMinChunkLengthToEmbed(10)
+                .withMaxNumChunks(5000)
+                .withKeepSeparator(true)
+                .build();
         return splitter.apply(documents);
     }
 }

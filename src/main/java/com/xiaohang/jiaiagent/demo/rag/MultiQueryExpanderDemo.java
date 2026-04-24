@@ -16,8 +16,8 @@ public class MultiQueryExpanderDemo {
 
     private final ChatClient.Builder chatClientBuilder;
 
-    public MultiQueryExpanderDemo(ChatModel dashscopeChatModel) {
-        this.chatClientBuilder = ChatClient.builder(dashscopeChatModel);
+    public MultiQueryExpanderDemo(ChatModel ChatModel) {
+        this.chatClientBuilder = ChatClient.builder(ChatModel);
     }
 
     public List<Query> expand(String query) {

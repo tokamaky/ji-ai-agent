@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.ai.chat.client.ChatClient;
 import reactor.core.publisher.Flux;
 import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.List;
 
@@ -25,11 +26,7 @@ import java.util.List;
 public class LoveApp {
 
     private final ChatClient chatClient;
-
-    private static final String SYSTEM_PROMPT = "扮演深耕恋爱心理领域的专家。开场向用户表明身份，告知用户可倾诉恋爱难题。" +
-            "围绕单身、恋爱、已婚三种状态提问：单身状态询问社交圈拓展及追求心仪对象的困扰；" +
-            "恋爱状态询问沟通、习惯差异引发的矛盾；已婚状态询问家庭责任与亲属关系处理的问题。" +
-            "引导用户详述事情经过、对方反应及自身想法，以便给出专属解决方案。";
+    private final String systemPrompt;
 
     // AI 恋爱知识库问答功能
     @Resource
@@ -49,23 +46,15 @@ public class LoveApp {
     @Resource
     private ToolCallback[] allTools;
 
-    public LoveApp(ChatModel chatModel) {
-        //        // 初始化基于文件的对话记忆
-//        String fileDir = System.getProperty("user.dir") + "/tmp/chat-memory";
-//        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
-        // 初始化基于内存的对话记忆
-//        String apiKey = System.getenv("API_KEY");
-//        log.info("========== API_KEY length: {}", apiKey != null ? apiKey.length() : "null");
-//        log.info("========== API_KEY value: [{}]", apiKey);
-//        log.info("========== API_KEY hex: {}", apiKey != null ?
-//                apiKey.chars().mapToObj(c -> String.format("%02x", c)).collect(java.util.stream.Collectors.joining(" ")) : "null");
-//         原有代码保持不变...
+    public LoveApp(ChatModel chatModel,
+                   @Value("${app.prompts.love-app.system}") String systemPrompt) {
+        this.systemPrompt = systemPrompt;
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
                 .chatMemoryRepository(new InMemoryChatMemoryRepository())
                 .maxMessages(20)
                 .build();
         chatClient = ChatClient.builder(chatModel)
-                .defaultSystem(SYSTEM_PROMPT)
+                .defaultSystem(systemPrompt)
                 .defaultAdvisors(
                         MessageChatMemoryAdvisor.builder(chatMemory).build(),
                         // 自定义日志 Advisor，可按需开启
@@ -75,7 +64,21 @@ public class LoveApp {
                 )
                 .build();
     }
-
+    // （用 @PostConstruct 在初始化完成后打印）
+    @jakarta.annotation.PostConstruct
+    public void checkMcpTools() {
+        if (toolCallbackProvider != null) {
+            var callbacks = toolCallbackProvider.getToolCallbacks();
+            log.info("=============== MCP TOOLS FROM toolCallbackProvider ===============");
+            log.info("Total tools: {}", callbacks.length);
+            for (var cb : callbacks) {
+                log.info("  Tool: {} | desc: {}", cb.getToolDefinition().name(), cb.getToolDefinition().description());
+            }
+            log.info("===================================================================");
+        } else {
+            log.error("toolCallbackProvider is NULL");
+        }
+    }
     /**
      * AI 基础对话（支持多轮对话记忆）
      *
@@ -107,10 +110,13 @@ public class LoveApp {
                 .prompt()
                 .user(message)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                // 本地工具（PDF生成、网页搜索、终端等）
+                .toolCallbacks(allTools)
+                // MCP 工具（图片搜索）
+                .toolCallbacks(toolCallbackProvider)
                 .stream()
                 .content();
     }
-
     record LoveReport(String title, List<String> suggestions) {
 
     }
@@ -125,7 +131,7 @@ public class LoveApp {
     public LoveReport doChatWithReport(String message, String chatId) {
         LoveReport loveReport = chatClient
                 .prompt()
-                .system(SYSTEM_PROMPT + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表")
+                .system(this.systemPrompt + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表")
                 .user(message)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
@@ -153,9 +159,9 @@ public class LoveApp {
                 // 开启日志，便于观察效果
                 .advisors(new MyLoggerAdvisor())
                 // 应用 RAG 知识库问答
-                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                .advisors(QuestionAnswerAdvisor.builder(loveAppVectorStore).build())
                 //应用 RAG 检索增强服务（基于 PgVector 向量存储）
-                //.advisors(new QuestionAnswerAdvisor(pgVectorVectorStore))
+                //.advisors(QuestionAnswerAdvisor.builder(pgVectorVectorStore).build())
                 // 应用自定义的 RAG 检索增强服务（文档查询器 + 上下文增强器）
 //                .advisors(
 //                        LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisor(

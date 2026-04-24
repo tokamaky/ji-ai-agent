@@ -10,15 +10,23 @@ spring:
             model: ${GEMINI_CHAT_MODEL:gemini-2.5-flash-lite}
             temperature: 0.7
         embedding:
+          api-key: ${GEMINI_API_KEY}
           text:
             options:
-              model: ${GEMINI_EMBEDDING_MODEL:text-embedding-004}
-      mcp:
-        client:
-          sse:
-            connections:
-              server1:
-                url: ${MCP_IMAGE_SEARCH_URL:http://localhost:8127}
+              model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+              dimensions: 768
+    mcp:
+      client:
+        enabled: true
+        type: SYNC
+        request-timeout: 30s
+        toolcallback:
+          enabled: true
+        sse:
+          connections:
+            server1:
+              url: ${MCP_IMAGE_SEARCH_URL:http://localhost:8127}
+              sse-endpoint: /sse
 #          stdio:
 #            servers-configuration: classpath:mcp-servers.json
     vectorstore:
@@ -62,7 +70,18 @@ knife4j:
 logging:
   level:
     org.springframework.ai: DEBUG
+    org.springframework.ai.mcp: DEBUG       # ← 加这行
+    io.modelcontextprotocol: DEBUG
 
 # application.yml
 search:
   api-key: ${SEARCH_API_KEY}
+
+# AI 提示词配置（支持环境变量覆盖，Railway 上可以通过环境变量修改）
+app:
+  prompts:
+    love-app:
+      system: "${PROMPT_LOVE_APP:You are an expert in relationship psychology with tool-use capability. Always respond in the same language as the user (Chinese→Chinese, English→English). TOOL USAGE: When the user asks to search/generate/download, call the appropriate tool IMMEDIATELY without asking clarification. Available tools: searchImage (returns image URLs), searchWeb, generatePDF, readFile, writeFile, downloadResource. CRITICAL — when searchImage returns URLs, you MUST display them to the user as markdown images using this exact format: ![description](URL). Example: ![romantic dinner](https://example.com/img1.jpg). Never say 'I generated an image' without showing the actual URL. Never fabricate fake URLs — only use URLs returned from searchImage. 作为恋爱心理专家：用户明确要求动作时立即调用工具；工具返回图片URL后必须用 markdown 格式 ![描述](URL) 展示给用户；仅当用户寻求情感建议时才询问单身/恋爱/已婚状态。}"
+    manus:
+      system: "${PROMPT_MANUS_SYSTEM:You are JiManus, an all-capable AI assistant, aimed at solving any task presented by the user. You have various tools at your disposal that you can call upon to efficiently complete complex requests. When the user asks you to perform a task that requires tools (searching, downloading, generating files, etc.), break down the task into steps and use the appropriate tools for each step. For simple greetings or questions that don't require tools, you may respond directly with text. When your task is fully completed, call the doTerminate tool to finish. Always answer in the user's language.}"
+      next-step: "${PROMPT_MANUS_NEXT_STEP:Based on the user's original request and the results so far, decide what to do next. If there are remaining steps to complete the user's task, call the appropriate tool. If the task is fully completed, call the doTerminate tool.}"

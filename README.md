@@ -36,7 +36,88 @@ Just open the link and chat — no signup required. Try these prompts:
 | Switch to **Manus** tab → `"搜索渥太华 5 公里内的景点并制作游玩计划 PDF"` | Multi-step agent: web search → scrape → PDF → download |
 
 ---
+## ⚡ Tech Stack
 
+| Layer | Technology |
+|---|---|
+| **Backend Runtime** | Java 21, Spring Boot 3.5.13 |
+| **AI Framework** | Spring AI 1.1.4 |
+| **LLM** | Google Gemini 2.5 Flash Lite (via Gemini Developer API) |
+| **Embedding** | `gemini-embedding-001` (768-dim with Matryoshka truncation) |
+| **Vector Store** | PostgreSQL 15 + pgvector (HNSW index, COSINE distance) |
+| **MCP** | `spring-ai-starter-mcp-client` + `spring-ai-starter-mcp-server-webmvc` |
+| **PDF** | iText 9.0 with embedded NotoSansCJK font |
+| **HTTP Parsing** | Jsoup 1.21 |
+| **API Docs** | Knife4j (Swagger 3) |
+| **Frontend** | React 18 + TypeScript + Vite + TailwindCSS + react-markdown |
+| **Reverse Proxy** | Nginx 1.27 with envsubst-templated configuration |
+| **Containerization** | Multi-stage Docker builds (Maven + JRE) |
+| **Deployment** | Railway (4 services with private networking) |
+
+---
+
+## 🏗️ Engineering Highlights
+
+### 1. Prompt as Configuration (12-Factor Compliant)
+
+All system prompts are externalized via environment variables. Change AI personality on Railway without rebuilding:
+
+```yaml
+app:
+  prompts:
+    love-app:
+      system: ${PROMPT_LOVE_APP:You are an expert in relationship psychology...}
+    manus:
+      system: ${PROMPT_MANUS_SYSTEM:You are JiManus, an autonomous AI agent...}
+```
+
+### 2. Prototype-Scoped Agent Beans
+
+Agents have **per-request state** (`messageList`, `currentStep`, `sseEmitter`). Single-scoped beans would corrupt data when concurrent users hit the API.
+
+```java
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class JiManus extends ToolCallAgent { ... }
+
+// Controller
+@Resource
+private ObjectProvider<JiManus> jiManusProvider;  // Lookup pattern
+
+@GetMapping("/manus/chat")
+public SseEmitter doChatWithManus(String message) {
+    return jiManusProvider.getObject().runStream(message);  // Fresh instance per request
+}
+```
+
+### 3. Nginx SSE-Aware Reverse Proxy
+
+SSE streams require special Nginx config to bypass buffering:
+
+```nginx
+location /api/ {
+    set $backend ${BACKEND_INTERNAL_URL};
+    proxy_pass $backend;
+
+    proxy_buffering off;          # Critical for SSE
+    proxy_cache off;
+    proxy_read_timeout 3600s;     # Long-lived connections
+    chunked_transfer_encoding off;
+}
+```
+
+### 4. MCP Microservice Pattern
+
+Image search lives in a **separate Spring Boot module** (`ji-image-search-mcp-server`), connected via MCP protocol. This demonstrates clean service decomposition — tools are independently deployable, scalable, and replaceable.
+
+### 5. Smart Tool Use via Prompt Engineering
+
+Carefully crafted prompts ensure the LLM:
+- Calls `searchImage` and renders results as `![](URL)` markdown (not just describing them in text)
+- Calls `generatePDF` and returns `[点击下载](path)` clickable links
+- Doesn't get stuck asking clarifying questions when the user explicitly requests an action
+
+---
 ## 🎯 What Makes This Project Stand Out
 
 This isn't a "hello world" tutorial project. It's a **production-deployed**, **multi-service** AI system showcasing real engineering choices:
@@ -177,89 +258,6 @@ All tools return standardized `ToolResponse`:
 ```json
 { "status": "success", "message": "...", "data": ... }
 ```
-
----
-
-## ⚡ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Backend Runtime** | Java 21, Spring Boot 3.5.13 |
-| **AI Framework** | Spring AI 1.1.4 |
-| **LLM** | Google Gemini 2.5 Flash Lite (via Gemini Developer API) |
-| **Embedding** | `gemini-embedding-001` (768-dim with Matryoshka truncation) |
-| **Vector Store** | PostgreSQL 15 + pgvector (HNSW index, COSINE distance) |
-| **MCP** | `spring-ai-starter-mcp-client` + `spring-ai-starter-mcp-server-webmvc` |
-| **PDF** | iText 9.0 with embedded NotoSansCJK font |
-| **HTTP Parsing** | Jsoup 1.21 |
-| **API Docs** | Knife4j (Swagger 3) |
-| **Frontend** | React 18 + TypeScript + Vite + TailwindCSS + react-markdown |
-| **Reverse Proxy** | Nginx 1.27 with envsubst-templated configuration |
-| **Containerization** | Multi-stage Docker builds (Maven + JRE) |
-| **Deployment** | Railway (4 services with private networking) |
-
----
-
-## 🏗️ Engineering Highlights
-
-### 1. Prompt as Configuration (12-Factor Compliant)
-
-All system prompts are externalized via environment variables. Change AI personality on Railway without rebuilding:
-
-```yaml
-app:
-  prompts:
-    love-app:
-      system: ${PROMPT_LOVE_APP:You are an expert in relationship psychology...}
-    manus:
-      system: ${PROMPT_MANUS_SYSTEM:You are JiManus, an autonomous AI agent...}
-```
-
-### 2. Prototype-Scoped Agent Beans
-
-Agents have **per-request state** (`messageList`, `currentStep`, `sseEmitter`). Single-scoped beans would corrupt data when concurrent users hit the API.
-
-```java
-@Component
-@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-public class JiManus extends ToolCallAgent { ... }
-
-// Controller
-@Resource
-private ObjectProvider<JiManus> jiManusProvider;  // Lookup pattern
-
-@GetMapping("/manus/chat")
-public SseEmitter doChatWithManus(String message) {
-    return jiManusProvider.getObject().runStream(message);  // Fresh instance per request
-}
-```
-
-### 3. Nginx SSE-Aware Reverse Proxy
-
-SSE streams require special Nginx config to bypass buffering:
-
-```nginx
-location /api/ {
-    set $backend ${BACKEND_INTERNAL_URL};
-    proxy_pass $backend;
-
-    proxy_buffering off;          # Critical for SSE
-    proxy_cache off;
-    proxy_read_timeout 3600s;     # Long-lived connections
-    chunked_transfer_encoding off;
-}
-```
-
-### 4. MCP Microservice Pattern
-
-Image search lives in a **separate Spring Boot module** (`ji-image-search-mcp-server`), connected via MCP protocol. This demonstrates clean service decomposition — tools are independently deployable, scalable, and replaceable.
-
-### 5. Smart Tool Use via Prompt Engineering
-
-Carefully crafted prompts ensure the LLM:
-- Calls `searchImage` and renders results as `![](URL)` markdown (not just describing them in text)
-- Calls `generatePDF` and returns `[点击下载](path)` clickable links
-- Doesn't get stuck asking clarifying questions when the user explicitly requests an action
 
 ---
 

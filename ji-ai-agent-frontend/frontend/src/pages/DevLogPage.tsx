@@ -317,7 +317,7 @@ Note: step_3 and step_4 both run after step_2 but have no dependency on each oth
 ### JSON Parsing Robustness
 
 The LLM returns structured JSON. I implemented robust extraction handling:
-- Markdown code fences (```json ... ```)
+- Markdown code fences (\`\`\`json ... \`\`\`)
 - Trailing commas (invalid JSON)
 - Text before/after the JSON array
 - Full fallback to single-step plan if parsing fails

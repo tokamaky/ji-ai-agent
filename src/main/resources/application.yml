@@ -78,9 +78,11 @@ search:
   api-key: ${SEARCH_API_KEY}
 
 # AI 提示词配置（支持环境变量覆盖，Railway 上可以通过环境变量修改）
-# AI 提示词配置：Railway 可通过环境变量覆盖（PROMPT_LOVE_APP / PROMPT_MANUS_SYSTEM / PROMPT_MANUS_NEXT_STEP）
+# AI 提示词配置：Railway 可通过环境变量覆盖（PROMPT_PLANNER_SYSTEM / PROMPT_LOVE_APP / PROMPT_MANUS_SYSTEM / PROMPT_MANUS_NEXT_STEP）
 app:
   prompts:
+    planner:
+      system: "${PROMPT_PLANNER_SYSTEM:You are a meticulous task decomposition specialist. Break complex requests into ordered steps with tool assignments.}"
     love-app:
       system: "${PROMPT_LOVE_APP:You are an expert in relationship psychology with tool-use capability. LANGUAGE RULE: Always respond in the same language as the user's most recent message. Chinese to Chinese, English to English. Never switch languages unilaterally. ROLE: Provide warm, professional advice on dating, relationships, and marriage. Ask clarifying questions about relationship status (single/dating/married) only when the user seeks emotional advice without a specific actionable request. TOOL USAGE - CRITICAL RULES: When the user asks for an action like search, generate, download, or read, call the appropriate tool IMMEDIATELY without asking for clarification. Available tools: (1) searchImage - returns 5-15 image URLs from Pexels separated by commas. After calling, you MUST display at least 3 images to the user using markdown image syntax: ![描述](URL). Each image on its own line. Never describe images in words alone - always render them. Never invent fake URLs. (2) generatePDF - generates a PDF and returns a download path like /api/files/pdf/filename.pdf. After calling, you MUST present the path as a clickable markdown link: [点击下载 PDF](/api/files/pdf/filename.pdf). Never show the raw path as plain text. (3) searchWeb - searches the web and returns results. After calling, summarize the key findings for the user in their language. (4) downloadResource - downloads a file from a URL. After calling, return the local path as a markdown link. (5) readFile / writeFile - file operations, report success or failure clearly. OUTPUT FORMAT: Use markdown formatting (links, images, lists) so the React frontend can render them properly. 你是恋爱心理专家，使用与用户相同的语言回复。当用户明确要求执行动作（搜索/生成/下载）时立即调用工具，不要追问细节。工具返回结果后必须用 markdown 格式呈现：图片 URL 用 ![描述](URL) 显示至少 3 张；PDF 路径用 [点击下载](路径) 链接；网页搜索结果用文字总结。仅当用户寻求情感建议时才询问单身/恋爱/已婚状态等详情。}"
     manus:

@@ -1,6 +1,7 @@
 import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Menu, Sparkles } from 'lucide-react'
+import { ArrowLeft, Menu, Sparkles, BookOpen } from 'lucide-react'
+import { clsx } from 'clsx'
 import { ThemeToggle } from './ThemeToggle'
 import { useAppStore } from '@/stores/appStore'
 
@@ -69,8 +70,25 @@ export const TopBar = React.memo(function TopBar({
         <span className="font-semibold text-surface-800 dark:text-surface-200">{title}</span>
       </div>
 
-      {/* Right: theme toggle */}
-      <ThemeToggle />
+      {/* Right: devlog link + theme toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => navigate('/devlog')}
+          className={clsx(
+            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm font-medium',
+            'text-surface-500 dark:text-surface-400',
+            'backdrop-blur-sm bg-surface-200/50 dark:bg-white/5',
+            'ring-1 ring-surface-300 dark:ring-white/10',
+            'hover:text-primary dark:hover:text-primary-400',
+            'hover:bg-primary/5 dark:hover:bg-primary/10',
+            'transition-all duration-150',
+          )}
+        >
+          <BookOpen size={15} />
+          <span className="hidden sm:inline">Dev Log</span>
+        </button>
+        <ThemeToggle />
+      </div>
     </header>
   )
 })

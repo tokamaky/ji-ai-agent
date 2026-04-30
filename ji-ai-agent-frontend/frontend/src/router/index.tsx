@@ -5,6 +5,7 @@ import { Spinner } from '@/components/LoadingAnimation'
 const HomePage = lazy(() => import('@/pages/HomePage'))
 const LoveAppPage = lazy(() => import('@/pages/LoveAppPage'))
 const ManusAppPage = lazy(() => import('@/pages/ManusAppPage'))
+const DevLogPage = lazy(() => import('@/pages/DevLogPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 function PageLoader() {
@@ -37,6 +38,14 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoader />}>
         <ManusAppPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/devlog',
+    element: (
+      <Suspense fallback={<PageLoader />}>
+        <DevLogPage />
       </Suspense>
     ),
   },

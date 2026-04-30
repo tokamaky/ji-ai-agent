@@ -428,6 +428,973 @@ When interviewers ask "tell me about a challenging technical problem you solved"
     status: 'completed',
     effortHours: 6,
   },
+  // ─── Phase 2: Self-Reflection Mechanism ────────────────────────────────────
+  {
+    id: 'self-reflection-20260429',
+    date: '2026/04/29',
+    title: 'Self-Reflection: Closing the ReAct Loop with a Reflection Step',
+    category: 'architecture',
+    difficulty: 'advanced',
+    tags: ['reflection', 'react', 'self-critique', 'error-recovery', 'llm', 'retry'],
+    summary: 'Extending the ReAct agent loop from a 2-phase Think→Act cycle to a 3-phase ReAct loop by inserting a Reflection step after every tool execution — enabling automatic error detection and retry.',
+    technicalDetail: `## Background: The Missing Piece in ReAct
+
+The classic ReAct (Reasoning + Acting) pattern has a gap: it never questions whether the action it just took was correct. If a tool returns an unexpected result or fails silently, the agent blindly proceeds.
+
+## Solution: Reflect After Every Act
+
+By inserting a dedicated Reflection step between tool execution and the next reasoning cycle, the agent can:
+1. Evaluate whether the tool result makes sense in context
+2. Detect error conditions (empty results, API errors, malformed data)
+3. Decide whether to retry, replan, or continue
+
+### Architecture
+
+\`ReflectionAdvisor\` evaluates tool outputs using a structured critique prompt:
+- Was the tool call appropriate for the task?
+- Did the result solve or advance the sub-goal?
+- Should we retry with different arguments, or pivot?
+
+\`SelfCritic\` is a lightweight LLM call (using a smaller/faster model) that provides a confidence score and optional correction. This keeps the reflection step cheap — not every step triggers a full LLM retry.
+
+### Retry Strategy
+
+Reflection can trigger three outcomes:
+- **PROCEED**: Tool result is satisfactory, continue to next step
+- **RETRY**: Tool result is bad, re-invoke with corrected arguments
+- **REPLAN**: Tool choice was wrong entirely, invoke PlannerAgent for remaining steps
+
+### Integration Points
+
+The reflection hook lives inside the ToolCallAgent step loop:
+\`\`\`
+while (step < MAX_STEPS) {
+    String thought = think(messageList);        // Reason
+    Optional<ToolCall> toolCall = parseTools(thought);
+    if (toolCall.isPresent()) {
+        ToolResponse result = act(toolCall.get());  // Act
+        String reflection = reflect(thought, toolCall.get(), result); // Reflect
+        if (reflection.retry()) {
+            result = act(toolCall.get().withCorrectedArgs(reflection.corrections()));
+        }
+    }
+    messageList.add(new UserMessage(result.toString()));
+}
+\`\`\`
+
+### File Plan
+
+- \`agent/ReflectionAdvisor.java\` — evaluates tool results, returns ReflectionResult (proceed/retry/replan)
+- \`agent/SelfCritic.java\` — lightweight LLM critic for generating corrections`,
+    learningInsight: `## What This Enables
+
+**1. The ReAct becomes a true feedback loop**
+
+Traditional ReAct is open-loop — once you act, you commit. Adding reflection closes the loop with self-monitoring, which is how humans actually solve complex problems.
+
+**2. Retry budgets prevent infinite loops**
+
+With a configurable retry count (e.g., max 2 retries per step), the agent won't spiral into retry storms. This is a practical safety mechanism.
+
+**3. Reflection is a major interview differentiator**
+
+Most candidates know "ReAct = Reason + Act." Adding a Reflect phase demonstrates deep understanding of how production agents actually handle failure — exactly what senior engineers and researchers want to hear.
+
+**4. SelfCritic can use a cheaper model**
+
+Using gemini-2.5-flash-lite for the reflection step (vs. the main agent model) keeps costs low. This is a real production optimization.`,
+    codeSnippet: `// ReflectionResult — outcome of the reflection step
+@Data @Builder
+public class ReflectionResult {
+    private ReflectionAction action; // PROCEED, RETRY, REPLAN
+    private int confidence;          // 0–100 score
+    private String reasoning;        // Why this decision was made
+    private Map<String, Object> corrections; // For RETRY: corrected tool args
+    private String replanReason;     // For REPLAN: why we gave up
+}
+
+public enum ReflectionAction { PROCEED, RETRY, REPLAN }
+
+// SelfCritic — lightweight critique using fast model
+@Component
+public class SelfCritic {
+    private final ChatModel critiqueModel; // gemini-2.5-flash-lite
+
+    public ReflectionResult critique(String thought, ToolCall call, ToolResponse result) {
+        String prompt = """
+            Task: %s
+            Tool called: %s
+            Tool result: %s
+            Should we continue, retry, or replan?
+            """.formatted(thought, call.name(), result.message());
+
+        // Use fast/cheap model for critique
+        String critique = critiqueModel.call(prompt);
+        return parseCritique(critique);
+    }
+}`,
+    architectureDiagram: `┌────────────────────────────────────────────────────────────┐
+│                  ReAct + Reflect Loop                      │
+│                                                        │
+│  ┌─────────┐    ┌─────────┐    ┌─────────────┐         │
+│  │ Reason  │───▶│   Act   │───▶│   Reflect   │         │
+│  │ (think) │    │  (act)  │    │ (SelfCritic)│         │
+│  └─────────┘    └─────────┘    └──────┬──────┘         │
+│       ▲         ┌─────────┐            │                 │
+│       │         ▼         ▼            ▼                 │
+│       │    ┌─────────┐ ┌─────────────────┐               │
+│       │    │ PROCEED │ │      RETRY      │               │
+│       │    │  ✅ go  │ │  🔄 re-act with │               │
+│       │    │  next   │ │  corrections    │               │
+│       │    └─────────┘ └─────────────────┘               │
+│       │              │                                   │
+│       └──────────────┘  (loop back)                     │
+│                                                        │
+│       ┌─────────────────────────────────────────────┐   │
+│       │                 REPLAN                      │   │
+│       │  🔄 Invoke PlannerAgent with partial results │   │
+│       └─────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────┘`,
+    relatedConcepts: [
+      'ReAct Pattern',
+      'Self-Reflection',
+      'Error Recovery',
+      'Retry Strategy',
+      'LLM as Judge',
+      'Feedback Loop',
+      'Prompt Engineering',
+      'Cost Optimization',
+    ],
+    interviewValue: `**Why this matters in interviews:**
+
+This extends the classic ReAct pattern to its logical completion. Every senior ML/AI engineer knows Think→Act, but the Reflect phase is what separates production agents from toy demos:
+
+- **Debugging skill**: Explaining how reflection catches tool failures early prevents cascading errors down the execution pipeline.
+- **Resilience design**: A system that self-corrects is more robust than one that blindly follows a plan.
+- **Cost awareness**: Using a cheaper model for SelfCritic shows production mindset — not every LLM call needs to use the flagship model.
+- **Systematic thinking**: The three-outcome model (proceed/retry/replan) is clean and extensible — interviewers appreciate well-designed state machines.
+- **Comparable to real systems**: This mirrors how AutoGPT, Reflexion, and Self-Refine papers handle error recovery.`,
+    status: 'planned',
+    effortHours: 8,
+  },
+  // ─── Phase 2: Three-Tier Memory System ────────────────────────────────────
+  {
+    id: 'three-tier-memory-20260429',
+    date: '2026/04/29',
+    title: 'Three-Tier Memory: Working → Episodic → Semantic Persistence',
+    category: 'architecture',
+    difficulty: 'advanced',
+    tags: ['memory', 'vector-store', 'pgvector', 'postgresql', 'context-window', 'rag', 'working-memory', 'episodic', 'semantic'],
+    summary: 'Building a three-tier memory hierarchy that mirrors human cognition: Working Memory (sliding window) for in-session context, Episodic Memory (PostgreSQL) for session history, and Semantic Memory (pgvector) for long-term knowledge.',
+    technicalDetail: `## Motivation: Context Windows Are Finite
+
+JiManus currently uses a fixed sliding window of ~20 messages. This works for short conversations but fails for:
+- Long-running multi-session tasks
+- Tasks that reference past sessions
+- Building a persistent "knowledge base" of agent experiences
+
+## Three-Tier Memory Architecture
+
+### Tier 1: Working Memory (Sliding Window)
+
+The existing \`MessageWindowChatMemory\` from Spring AI serves as Working Memory:
+- Fixed-size sliding window (configurable, default 20 messages)
+- Resides in JVM heap — fastest access, zero persistence
+- Used for immediate context during a single session
+- Eviction: oldest messages dropped when window is full
+
+### Tier 2: Episodic Memory (PostgreSQL Session History)
+
+Session-level memory stored in PostgreSQL:
+- Each conversation session is an "episode" with a session ID
+- All messages (user + assistant) stored with timestamps
+- Searchable by session ID, date range, or keyword
+- Used for: "What did we do in the previous session about X?"
+
+\`EpisodicMemoryRepository\` provides CRUD + search:
+\`\`\`sql
+CREATE TABLE episodic_memory (
+    id BIGSERIAL PRIMARY KEY,
+    session_id UUID NOT NULL,
+    role VARCHAR(20) NOT NULL,  -- 'user' or 'assistant'
+    content TEXT NOT NULL,
+    message_index INT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_episodic_session ON episodic_memory(session_id);
+CREATE INDEX idx_episodic_created ON episodic_memory(created_at);
+\`\`\`
+
+### Tier 3: Semantic Memory (pgvector Long-Term Knowledge)
+
+Long-term knowledge stored as vector embeddings:
+- Summaries of completed sessions embedded and stored in pgvector
+- Queries use cosine similarity to retrieve relevant past episodes
+- Enables cross-session context inheritance
+- Used for: "Find all past sessions related to travel planning"
+
+\`SemanticMemoryService\` handles embedding + retrieval:
+\`\`\`sql
+CREATE TABLE semantic_memory (
+    id BIGSERIAL PRIMARY KEY,
+    session_id UUID NOT NULL,
+    summary TEXT NOT NULL,        -- Human-readable summary
+    embedding vector(768) NOT NULL,
+    tags TEXT[],                   -- ['travel', 'planning']
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX ON semantic_memory USING hnsw (embedding vector_cosine_ops);
+\`\`\`
+
+### Memory Inheritance Flow
+
+When a new session starts:
+1. Query Semantic Memory for relevant past sessions (vector similarity)
+2. Retrieve top-K relevant episodic summaries
+3. Load the full episodic messages from those sessions
+4. Prepend relevant context to Working Memory (with a token budget)
+
+### File Plan
+
+- \`chatmemory/ThreeTierMemory.java\` — facade coordinating all three tiers
+- \`chatmemory/EpisodicMemoryRepository.java\` — JPA repository for session history
+- \`chatmemory/SemanticMemoryService.java\` — pgvector embedding + retrieval`,
+    learningInsight: `## What This Teaches
+
+**1. Memory hierarchy is a fundamental CS concept applied to AI**
+
+Just like CPU cache → RAM → SSD → HDD, AI agents benefit from a similar gradient: fast/expensive/volatile → slow/cheap/durable. This parallel makes the design intuitive for interviewers.
+
+**2. pgvector integration实战 (hands-on experience)**
+
+This requires understanding:
+- HNSW vs IVFFlat indexing trade-offs
+- COSINE vs L2 vs DOT_PRODUCT distance metrics
+- Embedding dimension alignment (768-dim Gemini embeddings)
+- Batch upsert strategies for performance
+
+**3. Context inheritance is non-trivial**
+
+Simply prepending old messages to the prompt causes confusion. The system needs to:
+- Summarize old sessions (not raw transcript)
+- Respect token budgets
+- Clearly mark borrowed context vs. current session
+
+**4. Interview gold: "How do you handle long conversations?"**
+
+This question comes up constantly. A three-tier memory system is a sophisticated, production-grade answer that goes far beyond "I use a sliding window."`,
+    codeSnippet: `// ThreeTierMemory — unified memory facade
+@Component
+public class ThreeTierMemory {
+    private final WorkingMemory workingMemory;    // Spring AI MessageWindowChatMemory
+    private final EpisodicMemoryRepository episodic; // JPA repository
+    private final SemanticMemoryService semantic;   // pgvector service
+
+    // Called when a new session starts
+    public ChatMemory loadContextForSession(UUID sessionId, String query) {
+        // 1. Query semantic memory for relevant past sessions
+        List<SemanticMemory> relevant = semantic.search(query, topK: 3);
+
+        // 2. Load episodic details for those sessions
+        List<EpisodicEpisode> episodes = relevant.stream()
+            .map(s -> episodic.findBySessionId(s.getSessionId()))
+            .toList();
+
+        // 3. Build context summary
+        String inheritedContext = episodes.stream()
+            .map(e -> "[Past session: " + e.getSummary() + "]")
+            .collect(Collectors.joining("\\n"));
+
+        // 4. Prepend to working memory
+        workingMemory.add(new UserMessage(inheritedContext));
+        return workingMemory;
+    }
+
+    // Called when a session ends
+    public void archiveSession(UUID sessionId, List<Message> messages) {
+        // 1. Persist all messages to episodic memory
+        episodic.saveAll(sessionId, messages);
+
+        // 2. Generate and embed a summary for semantic memory
+        String summary = summarize(messages);
+        semantic.embedAndStore(sessionId, summary, extractTags(messages));
+    }
+}`,
+    architectureDiagram: `┌──────────────────────────────────────────────────────────┐
+│               Three-Tier Memory Architecture              │
+│                                                          │
+│  ┌──────────────┐   SPEED ▲   DURABILITY ▼              │
+│  │  Working     │  Sliding window (20 msgs)             │
+│  │  Memory      │  JVM heap · Zero persistence            │
+│  │  (Tier 1)    │  Active session context                 │
+│  └──────┬───────┘                                        │
+│         │ context inheritance on session start            │
+│         ▼                                                │
+│  ┌──────────────┐  PostgreSQL · Full session history     │
+│  │  Episodic    │  Searchable by session/date/keyword     │
+│  │  Memory      │  All messages persisted                 │
+│  │  (Tier 2)    │                                        │
+│  └──────┬───────┘                                        │
+│         │ summarize + embed on session end                │
+│         ▼                                                │
+│  ┌──────────────┐  pgvector (HNSW) · 768-dim embeddings │
+│  │  Semantic    │  Cosine similarity search              │
+│  │  Memory      │  Cross-session knowledge               │
+│  │  (Tier 3)    │  Long-term agent experience            │
+│  └──────────────┘                                        │
+└──────────────────────────────────────────────────────────┘`,
+    relatedConcepts: [
+      'Memory Hierarchy',
+      'Vector Store',
+      'pgvector',
+      'HNSW Index',
+      'Embedding Models',
+      'Cosine Similarity',
+      'Context Window Management',
+      'Session Management',
+      'RAG (Retrieval-Augmented Generation)',
+    ],
+    interviewValue: `**Why this matters in interviews:**
+
+Memory systems are a hot topic in AI engineering interviews. This demonstrates:
+
+- **Systems design**: The three-tier architecture mirrors human cognition and classic CS memory hierarchies — a pattern interviewers love.
+- **Database mastery**: Writing raw SQL for pgvector, tuning HNSW parameters, understanding index trade-offs — all show deep PostgreSQL knowledge.
+- **Embedding pipeline**: Explaining how sessions get summarized, embedded, and retrieved proves end-to-end RAG understanding.
+- **Scalability thinking**: Each tier has different performance characteristics. Knowing when to hit semantic vs. episodic vs. working memory shows cost/benefit analysis.
+- **Real production challenge**: "How do you handle long conversations?" is a common interview question. This is a production-grade answer, not a textbook one.`,
+    status: 'planned',
+    effortHours: 12,
+  },
+  // ─── Phase 2: Agent Communication Protocol ─────────────────────────────────
+  {
+    id: 'agent-comm-protocol-20260429',
+    date: '2026/04/29',
+    title: 'Agent间通信协议: JSON Messages over Async Message Queues',
+    category: 'architecture',
+    difficulty: 'advanced',
+    tags: ['multi-agent', 'async', 'message-queue', 'linkedblockingqueue', 'agent-protocol', 'json', 'inter-process-communication'],
+    summary: 'Defining a typed JSON message protocol (REQUEST/RESPONSE/NOTIFICATION/BROADCAST) for agent-to-agent communication, backed by LinkedBlockingQueue for thread-safe async delivery.',
+    technicalDetail: `## Motivation: Agents Need to Talk
+
+When we introduce multiple specialized agents (Supervisor, Planner, Researcher, Coder), they need a standardized way to exchange messages. ad-hoc method calls create tight coupling and make the system hard to extend.
+
+## Message Protocol Design
+
+Every inter-agent message is a typed JSON envelope:
+
+### Message Types
+
+\`\`\`json
+// REQUEST — ask another agent to perform work
+{
+  "type": "REQUEST",
+  "messageId": "uuid",
+  "from": "supervisor-agent",
+  "to": "researcher-agent",
+  "payload": {
+    "taskId": "task-uuid",
+    "action": "web_search",
+    "args": { "query": "Beijing travel" }
+  },
+  "timestamp": "2026-04-29T10:00:00Z",
+  "correlationId": "parent-uuid"
+}
+
+// RESPONSE — result of a REQUEST
+{
+  "type": "RESPONSE",
+  "messageId": "uuid",
+  "requestId": "original-request-uuid",
+  "from": "researcher-agent",
+  "to": "supervisor-agent",
+  "payload": { "status": "success", "result": "..." },
+  "timestamp": "2026-04-29T10:00:05Z"
+}
+
+// NOTIFICATION — one-way informational message
+{
+  "type": "NOTIFICATION",
+  "messageId": "uuid",
+  "from": "researcher-agent",
+  "to": "supervisor-agent",
+  "payload": { "event": "CRAWL_COMPLETE", "taskId": "task-uuid" },
+  "timestamp": "2026-04-29T10:00:05Z"
+}
+
+// BROADCAST — message sent to all registered agents
+{
+  "type": "BROADCAST",
+  "messageId": "uuid",
+  "from": "supervisor-agent",
+  "payload": { "event": "SYSTEM_SHUTDOWN", "reason": "idle_timeout" },
+  "timestamp": "2026-04-29T10:00:00Z"
+}
+\`\`\`
+
+## Async Queue Infrastructure
+
+Each agent has a private \`LinkedBlockingQueue<AgentMessage>\`:
+- Thread-safe enqueue/dequeue
+- Bounded capacity (configurable, default 100 messages)
+- Supports \`take()\` blocking for efficient waiting
+- Outbound routing via \`AgentRegistry\`: message → target agent's queue
+
+\`MessageQueue\` wraps the queue operations with:
+- Send confirmation (blocks until acknowledged or timeout)
+- Dead-letter queue for failed messages
+- Message serialization/deserialization (Jackson)
+
+### File Plan
+
+- \`agent/multiagent/AgentMessage.java\` — typed message envelope
+- \`agent/multiagent/AgentRegistry.java\` — agent registration + routing
+- \`agent/multiagent/MessageQueue.java\` — async queue operations`,
+    learningInsight: `## What This Demonstrates
+
+**1. Protocol design is an undervalued skill**
+
+Most engineers write RPC calls. Designing a typed message protocol with clear semantics (request/response/notif/broadcast) and thinking through failure modes shows systems design maturity.
+
+**2. Async messaging patterns are everywhere in production**
+
+LinkedBlockingQueue is the Java standard library's answer to async messaging. Understanding bounded queues, blocking vs. polling, and backpressure is directly applicable to Kafka, RabbitMQ, etc.
+
+**3. JSON over typed objects gives flexibility without losing type safety**
+
+Jackson serialization of typed \`AgentMessage\` subclasses gives us both:
+- Structured, typed Java objects in code (compile-time safety)
+- JSON on the wire (interoperability, debugging, logging)
+
+**4. The correlation ID enables request-response matching**
+
+In an async system, a REQUEST and its RESPONSE may arrive at different times. The \`requestId\` field links them — this is the same pattern used in HTTP correlation headers and message queue systems.`,
+    codeSnippet: `// AgentMessage — base envelope for all agent messages
+@Data
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = RequestMessage.class, name = "REQUEST"),
+    @JsonSubTypes.Type(value = ResponseMessage.class, name = "RESPONSE"),
+    @JsonSubTypes.Type(value = NotificationMessage.class, name = "NOTIFICATION"),
+    @JsonSubTypes.Type(value = BroadcastMessage.class, name = "BROADCAST"),
+})
+public abstract class AgentMessage {
+    private String messageId;
+    private String type;           // REQUEST, RESPONSE, NOTIFICATION, BROADCAST
+    private String from;          // Sender agent name
+    private String to;            // Target agent name (null for broadcast)
+    private Object payload;       // Typed payload
+    private Instant timestamp;
+    private String correlationId;  // Links request to response
+}
+
+// MessageQueue — thread-safe async delivery
+@Component
+public class MessageQueue {
+    private final Map<String, LinkedBlockingQueue<AgentMessage>> queues = new ConcurrentHashMap<>();
+    private final AgentRegistry registry;
+
+    public void send(AgentMessage message) throws InterruptedException {
+        String targetQueue = registry.getQueueName(message.getTo());
+        LinkedBlockingQueue<AgentMessage> queue = queues.computeIfAbsent(
+            targetQueue, k -> new LinkedBlockingQueue<>(100));
+
+        boolean enqueued = queue.offer(message, 5, TimeUnit.SECONDS);
+        if (!enqueued) {
+            throw new AgentCommunicationException("Queue full: " + targetQueue);
+        }
+    }
+
+    public AgentMessage receive(String agentName, long timeout, TimeUnit unit)
+            throws InterruptedException {
+        LinkedBlockingQueue<AgentMessage> queue = queues.get(agentName);
+        return queue == null ? null : queue.poll(timeout, unit);
+    }
+}`,
+    architectureDiagram: `┌─────────────────────────────────────────────────────────────┐
+│              Agent间通信协议                              │
+│                                                         │
+│  ┌──────────────┐     REQUEST      ┌──────────────┐    │
+│  │  Supervisor  │ ─────────────────▶ │  Researcher │    │
+│  │   Agent     │ ◀───────────────── │    Agent    │    │
+│  └──────────────┘     RESPONSE       └──────────────┘    │
+│         │                                       │         │
+│         │         BROADCAST                     │         │
+│         └───────────────────────────────────────┤         │
+│         │                                       │         │
+│         ▼                                       ▼         │
+│  ┌──────────────┐                    ┌──────────────┐    │
+│  │  Coder Agent │                    │ Planner Agent│    │
+│  └──────────────┘                    └──────────────┘    │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │              AgentRegistry                       │   │
+│  │  "supervisor" → queue_1                          │   │
+│  │  "researcher" → queue_2                          │   │
+│  │  "coder"       → queue_3                         │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘`,
+    relatedConcepts: [
+      'Async Messaging',
+      'LinkedBlockingQueue',
+      'Message Protocol',
+      'JSON Serialization',
+      'Request-Response Pattern',
+      'Correlation ID',
+      'Dead Letter Queue',
+      'Actor Model',
+      'Spring Component',
+    ],
+    interviewValue: `**Why this matters in interviews:**
+
+This is a mini distributed systems design exercise. It demonstrates:
+
+- **Protocol design thinking**: Interviewers often ask "how would you design a messaging protocol between services?" This shows you can define message types, semantics, and failure handling.
+- **Concurrency mastery**: LinkedBlockingQueue internals (lock-based, condition variables) are fair-game interview topics.
+- **Async vs. sync trade-offs**: Explaining why we use async queues (decoupling, backpressure, non-blocking) shows systems thinking.
+- **Real-world analogy**: This mirrors how microservices communicate via message queues (Kafka, SQS) — a production-relevant pattern.
+- **Error handling**: Dead-letter queues, timeout handling, and queue-full backpressure show defensive programming.`,
+    status: 'planned',
+    effortHours: 6,
+  },
+  // ─── Phase 2: Supervisor-Agent Architecture ─────────────────────────────────
+  {
+    id: 'supervisor-agent-20260429',
+    date: '2026/04/29',
+    title: 'Supervisor-Agent: Orchestrating Sub-Agents with CompletableFuture',
+    category: 'architecture',
+    difficulty: 'advanced',
+    tags: ['supervisor', 'orchestration', 'completablefuture', 'parallel-execution', 'aggregator', 'multi-agent', 'java-concurrency'],
+    summary: 'Implementing a Supervisor-Agent that routes tasks to specialized sub-agents (Planner/Researcher/Coder), executes parallelizable steps via CompletableFuture, and aggregates results into a unified response.',
+    technicalDetail: `## Motivation: Specialization Beats Generalization
+
+A single general-purpose agent struggles with diverse tasks. Splitting responsibilities:
+- **Supervisor**: Task routing and result aggregation (orchestrator)
+- **Planner**: Task decomposition (already implemented)
+- **Researcher**: Web search, data gathering, fact-checking
+- **Coder**: Code generation, file operations, command execution
+
+## Supervisor-Agent Design
+
+The Supervisor is the entry point — it receives user requests and decides:
+
+### Routing Logic
+
+\`\`\`
+if (task involves "search", "find", "look up") → route to ResearcherAgent
+if (task involves "write code", "create file", "run command") → route to CoderAgent
+if (task involves "plan", "schedule", "organize") → route to PlannerAgent
+if (task is complex/multi-step) → decompose with Planner, then fan-out to sub-agents
+\`\`\`
+
+### Parallel Execution with CompletableFuture
+
+When multiple sub-tasks are independent, the Supervisor fans them out:
+
+\`\`\`java
+List<CompletableFuture<SubAgentResult>> futures = subTasks.stream()
+    .filter(SubTask::isParallelizable)
+    .map(task -> CompletableFuture
+        .supplyAsync(() -> routeToSubAgent(task), executorService))
+    .toList();
+
+List<SubAgentResult> results = futures.stream()
+    .map(CompletableFuture::join)  // Wait for all
+    .toList();
+\`\`\`
+
+### Result Aggregation
+
+\`AgentCoordinator\` collects results from all sub-agents and synthesizes a final response. The aggregator uses a synthesis prompt:
+\`\`\`
+Synthesize the following sub-agent results into a coherent response:
+
+[Researcher]: Found 5 Beijing attractions with ratings and descriptions
+[Coder]: Generated a 3-day itinerary markdown file
+[Planner]: Created a schedule with timing recommendations
+
+User's original request: "Plan a Beijing trip for me"
+\`\`\`
+
+### Supervisor State Machine
+
+\`\`\`
+IDLE → ROUTING → EXECUTING → AGGREGATING → RESPONDING → IDLE
+          │           │
+          │           └─ Parallel sub-agent execution
+          └─ Decide which sub-agents to invoke
+\`\`\`
+
+### File Plan
+
+- \`agent/multiagent/SupervisorAgent.java\` — task routing and orchestration
+- \`agent/multiagent/ResearcherAgent.java\` — web search + data gathering specialization
+- \`agent/multiagent/CoderAgent.java\` — code/file operations specialization
+- \`agent/multiagent/AgentCoordinator.java\` — CompletableFuture orchestration + result aggregation`,
+    learningInsight: `## What This Teaches
+
+**1. CompletableFuture is the Java standard for async composition**
+
+Chaining \`thenApply\`, \`thenCompose\`, \`allOf\`, and \`join\` is a fundamental Java skill. This project gives real-world practice with:
+- Fan-out/fan-in patterns
+- Exception handling in async chains (\`exceptionally\`, \`handle\`)
+- Thread pool management with \`Executors.newFixedThreadPool\`
+
+**2. Orchestration vs. Choreography**
+
+The Supervisor pattern is orchestration: one central controller directs the dance. An alternative (choreography) would have agents publish/subscribe events autonomously. Both have trade-offs — the Supervisor pattern is easier to debug and reason about.
+
+**3. The aggregator is its own LLM call**
+
+Synthesis is non-trivial. The aggregator must:
+- Understand each sub-agent's output format
+- Detect conflicts between results
+- Produce a coherent narrative
+
+This is itself a prompting engineering challenge.
+
+**4. Timeout and cancellation**
+
+With multiple agents running in parallel, the Supervisor must handle:
+- Partial timeout (one agent slow → wait or skip?)
+- Cancellation (user cancels → stop all sub-agents)
+- Resource cleanup (\`CompletableFuture.cancel(true)\` + thread interrupt)
+
+These are advanced concurrency topics that interviewers love to probe.`,
+    codeSnippet: `// SupervisorAgent — task routing and orchestration
+@Component
+public class SupervisorAgent {
+    private final AgentRegistry registry;
+    private final AgentCoordinator coordinator;
+
+    public SseEmitter execute(String task, SseEmitter emitter) {
+        // 1. Classify task type
+        TaskType type = classifyTask(task);
+
+        // 2. Route to appropriate sub-agents
+        List<SubTask> subTasks = switch (type) {
+            case RESEARCH -> List.of(new SubTask("research", task, researcherAgent));
+            case CODE -> List.of(new SubTask("code", task, coderAgent));
+            case COMPLEX -> plannerAgent.decompose(task).getSteps().stream()
+                .map(step -> new SubTask(step.getToolName(), step.getDescription(),
+                    registry.getAgent(step.getToolName())))
+                .toList();
+        };
+
+        // 3. Execute parallelizable tasks
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        List<CompletableFuture<SubAgentResult>> futures = subTasks.stream()
+            .map(st -> CompletableFuture.supplyAsync(
+                () -> coordinator.execute(st), executor))
+            .toList();
+
+        // 4. Wait for all and aggregate
+        List<SubAgentResult> results = futures.stream()
+            .map(CompletableFuture::join)
+            .toList();
+
+        // 5. Synthesize final response
+        String response = synthesizer.synthesize(task, results);
+        emitter.send(response);
+        emitter.complete();
+
+        executor.shutdown();
+        return emitter;
+    }
+}`,
+    architectureDiagram: `┌──────────────────────────────────────────────────────────────┐
+│              Supervisor-Agent Architecture                     │
+│                                                              │
+│                    ┌──────────────────┐                        │
+│                    │  User Request   │                        │
+│                    └────────┬─────────┘                        │
+│                             ▼                                  │
+│                    ┌──────────────────┐                        │
+│                    │ SupervisorAgent │                        │
+│                    │  (Orchestrator)  │                        │
+│                    └────────┬─────────┘                        │
+│          ┌──────────┬───────┴───────┬──────────┐              │
+│          ▼          ▼               ▼          ▼              │
+│    ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
+│    │ Research │ │  Coder   │ │  Planner │ │ Research │      │
+│    │  Agent   │ │  Agent   │ │  Agent   │ │  Agent   │      │
+│    │  (web)   │ │  (code)  │ │  (plan)  │ │  (img)  │      │
+│    └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘      │
+│         │           │            │            │              │
+│         └───────────┴────────────┴────────────┘              │
+│                          │                                    │
+│                          ▼                                    │
+│               ┌──────────────────┐                           │
+│               │ AgentCoordinator │                           │
+│               │ (CompletableFuture│                           │
+│               │  aggregation)    │                           │
+│               └────────┬─────────┘                           │
+│                        ▼                                      │
+│               ┌──────────────────┐                           │
+│               │   Synthesizer    │                           │
+│               │ (LLM synthesis)   │                           │
+│               └────────┬─────────┘                           │
+│                        ▼                                      │
+│               ┌──────────────────┐                           │
+│               │   Final SSE     │                           │
+│               └──────────────────┘                           │
+└──────────────────────────────────────────────────────────────┘`,
+    relatedConcepts: [
+      'CompletableFuture',
+      'ExecutorService',
+      'Fan-out/Fan-in',
+      'Orchestration Pattern',
+      'Task Routing',
+      'Result Aggregation',
+      'Async Programming',
+      'Thread Pool',
+      'SSE Streaming',
+    ],
+    interviewValue: `**Why this matters in interviews:**
+
+This is a distributed systems + concurrency showcase:
+
+- **CompletableFuture mastery**: \`join()\`, \`allOf()\`, \`exceptionally()\` — these are Java concurrency interview staples. Real usage beats textbook examples.
+- **Orchestration design**: Explaining why the Supervisor pattern makes sense (vs. choreography) shows architectural reasoning.
+- **Parallelism and performance**: Showing that independent sub-tasks run concurrently, cutting total latency, demonstrates performance awareness.
+- **Senior engineering judgment**: Deciding when to fan out vs. keep things sequential, handling partial failures, managing timeouts — these are the kind of nuanced decisions that separate senior from mid-level engineers.
+- **Real production systems**: Tools like Temporal, Airflow, and AWS Step Functions all use similar orchestration patterns. This project demonstrates understanding of those concepts.`,
+    status: 'planned',
+    effortHours: 10,
+  },
+  // ─── Phase 2: Agent Profile Configuration ──────────────────────────────────
+  {
+    id: 'agent-profile-config-20260429',
+    date: '2026/04/29',
+    title: 'Agent Profile: Role-Based Configuration for Multi-Agent Systems',
+    category: 'architecture',
+    difficulty: 'intermediate',
+    tags: ['agent-profile', 'configuration', 'rbac', 'role-based', 'tool-whitelist', 'spring', 'yaml', 'capability-boundary'],
+    summary: 'Defining explicit Agent Profiles that specify each agent role, capability boundaries, tool whitelists, and timeout configurations — bringing RBAC thinking to the agent framework.',
+    technicalDetail: `## Motivation: Agents Need Well-Defined Boundaries
+
+In a multi-agent system, without clear boundaries:
+- An agent might call tools it shouldn't (security risk)
+- No visibility into what each agent is allowed to do
+- Hard to reason about agent capabilities during debugging
+- Adding a new agent requires hunting through code
+
+## AgentProfile Design
+
+Each agent has a declarative profile loaded from YAML:
+
+\`\`\`yaml
+agent:
+  profiles:
+    supervisor:
+      role: ORCHESTRATOR
+      description: "Coordinates sub-agents, routes tasks, aggregates results"
+      capabilities:
+        - TASK_ROUTING
+        - RESULT_AGGREGATION
+        - PARALLEL_EXECUTION
+      toolWhitelist:
+        - sendMessage
+        - broadcastMessage
+        - aggregateResults
+      toolBlacklist: []
+      timeout:
+        defaultMs: 300000    # 5 min total
+        perSubAgentMs: 60000 # 1 min per sub-agent
+      maxRetries: 2
+      model: gemini-2.5-flash-lite
+
+    researcher:
+      role: SPECIALIST
+      description: "Web search and data gathering specialist"
+      capabilities:
+        - WEB_SEARCH
+        - PAGE_SCRAPE
+        - IMAGE_SEARCH
+        - FACT_CHECK
+      toolWhitelist:
+        - searchWeb
+        - scrapeWebPage
+        - searchImage
+        - downloadResource
+      toolBlacklist:
+        - executeTerminalCommand
+        - writeFile
+      timeout:
+        defaultMs: 60000
+      maxRetries: 3
+      model: gemini-2.5-flash
+
+    coder:
+      role: SPECIALIST
+      description: "Code generation and file operations specialist"
+      capabilities:
+        - CODE_GENERATION
+        - FILE_OPERATIONS
+        - COMMAND_EXECUTION
+      toolWhitelist:
+        - writeFile
+        - readFile
+        - executeTerminalCommand
+        - generatePDF
+      toolBlacklist:
+        - searchWeb
+        - scrapeWebPage
+      timeout:
+        defaultMs: 120000
+      maxRetries: 1
+      model: gemini-2.5-flash
+\`\`\`
+
+## Tool Enforcement
+
+Before any tool call, the framework checks:
+
+\`\`\`java
+public ToolResponse executeTool(ToolCall call, AgentProfile profile) {
+    if (!profile.getToolWhitelist().contains(call.getName())) {
+        throw new SecurityException(
+            "Agent " + profile.getName() + " attempted unauthorized tool: " + call.getName());
+    }
+    if (profile.getToolBlacklist().contains(call.getName())) {
+        throw new SecurityException(
+            "Tool " + call.getName() + " is blacklisted for agent " + profile.getName());
+    }
+    return toolRegistry.execute(call);
+}
+\`\`\`
+
+This is a soft security boundary (enforced at runtime) that prevents accidental tool misuse.
+
+## Capability-Based Tool Discovery
+
+Instead of hardcoding tool lists, agents discover their available tools through the profile:
+
+\`\`\`java
+public List<Tool> getAvailableTools(AgentProfile profile) {
+    return toolRegistry.getAll().stream()
+        .filter(tool -> profile.getToolWhitelist().contains(tool.getName()))
+        .toList();
+}
+\`\`\`
+
+When a new tool is registered, agents automatically gain/lose access based on their profile — no code changes needed.
+
+## File Plan
+
+- \`agent/multiagent/AgentProfile.java\` — profile model with role, capabilities, tool lists
+- \`agent/multiagent/AgentProfileRegistry.java\` — loads profiles from YAML, provides lookup`,
+    learningInsight: `## What This Teaches
+
+**1. Configuration-driven design (12-Factor, again)**
+
+Externalizing agent behavior into YAML is an extension of the 12-factor principle already used for prompts. Adding agents no longer requires code changes — just a new YAML block.
+
+**2. RBAC (Role-Based Access Control) in software design**
+
+The tool whitelist/blacklist pattern mirrors enterprise RBAC systems. Understanding how to design permission boundaries is a transferable skill applicable far beyond AI agents.
+
+**3. Spring's externalized configuration**
+
+Using \`@ConfigurationProperties\` to bind YAML to typed Java objects is idiomatic Spring Boot. This pattern is used in production Spring applications everywhere.
+
+**4. Defense in depth**
+
+The tool enforcement is a runtime guard, not a compile-time check. In a multi-agent system where agents are LLM-driven (thus unpredictable), runtime enforcement is essential. Compile-time checks alone are insufficient.
+
+**5. Interview angle: "How do you prevent an agent from doing something dangerous?"**
+
+This is a common safety/security question. Tool whitelisting + runtime enforcement is a concrete, thoughtful answer that goes beyond "I'll add a warning message."`,
+    codeSnippet: `// AgentProfile — declarative agent configuration
+@Data @Builder @ConfigurationProperties(prefix = "agent.profiles")
+public class AgentProfile {
+    private String name;
+    private AgentRole role;           // ORCHESTRATOR, SPECIALIST, GENERALIST
+    private String description;
+    private Set<AgentCapability> capabilities;
+    private Set<String> toolWhitelist;
+    private Set<String> toolBlacklist;
+    private TimeoutConfig timeout;
+    private int maxRetries;
+    private String model;              // Which Gemini model this agent uses
+}
+
+// Tool enforcement — runtime guard before tool execution
+@Component
+@RequiredArgsConstructor
+public class ToolEnforcer {
+    private final ToolRegistry toolRegistry;
+    private final AgentProfileRegistry profileRegistry;
+
+    public ToolResponse executeForAgent(String agentName, ToolCall call) {
+        AgentProfile profile = profileRegistry.getProfile(agentName);
+
+        String toolName = call.getName();
+        if (!profile.getToolWhitelist().contains(toolName)) {
+            throw new UnauthorizedToolException(
+                agentName + " is not authorized to call: " + toolName);
+        }
+        if (profile.getToolBlacklist().contains(toolName)) {
+            throw new BlacklistedToolException(
+                toolName + " is blacklisted for " + agentName);
+        }
+
+        return toolRegistry.execute(call);
+    }
+}`,
+    architectureDiagram: `┌─────────────────────────────────────────────────────────────┐
+│              Agent Profile Configuration                      │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              application.yml                          │   │
+│  │  agent:                                               │   │
+│  │    profiles:                                          │   │
+│  │      supervisor: { role, tools, timeout }            │   │
+│  │      researcher: { role, tools, timeout }           │   │
+│  │      coder: { role, tools, timeout }                 │   │
+│  └────────────────────┬────────────────────────────────┘   │
+│                       ▼                                       │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │           AgentProfileRegistry (@Component)           │   │
+│  │  • Loads YAML via @ConfigurationProperties            │   │
+│  │  • Provides typed AgentProfile by agent name         │   │
+│  │  • Caches profiles (loaded once at startup)          │   │
+│  └────────────────────┬────────────────────────────────┘   │
+│                       │                                       │
+│       ┌───────────────┼───────────────┐                     │
+│       ▼               ▼               ▼                     │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐                 │
+│  │Supervisor│    │Researcher│   │  Coder  │                 │
+│  │ Profile │    │ Profile │    │ Profile │                 │
+│  │tools:   │    │tools:   │    │tools:   │                 │
+│  │ - send  │    │ - search│    │ - write │                 │
+│  │ - broad │    │ - scrape│    │ - exec  │                 │
+│  └─────────┘    └─────────┘    └─────────┘                 │
+│                                                             │
+│  ToolEnforcer checks whitelist/blacklist at RUNTIME          │
+└─────────────────────────────────────────────────────────────┘`,
+    relatedConcepts: [
+      'Configuration-Driven Design',
+      'RBAC (Role-Based Access Control)',
+      'Spring @ConfigurationProperties',
+      'YAML Configuration',
+      'Security Boundaries',
+      'Capability-Based Access',
+      'Tool Whitelist',
+      'Defense in Depth',
+      '12-Factor App',
+    ],
+    interviewValue: `**Why this matters in interviews:**
+
+This brings enterprise-grade design patterns to the agent framework:
+
+- **Security mindset**: Explaining tool whitelisting and runtime enforcement shows you think about agent safety — a key concern in production AI systems.
+- **RBAC analogy**: Most engineers have encountered role-based access in enterprise software. Drawing the parallel to agent tool permissions demonstrates pattern recognition.
+- **Spring Boot depth**: \`@ConfigurationProperties\` binding, YAML externalization, and type-safe configuration are intermediate-to-advanced Spring topics.
+- **Extensibility**: "Adding a new agent requires no code changes" is a strong architectural statement. It shows you've thought about the developer experience and system maintainability.
+- **Operational awareness**: Timeout configs, retry limits, and per-agent model selection show you think about operational concerns (latency, cost, reliability) — not just functionality.`,
+    status: 'planned',
+    effortHours: 5,
+  },
 ]
 
 // ── DevLog Store ───────────────────────────────────────────────────────────────

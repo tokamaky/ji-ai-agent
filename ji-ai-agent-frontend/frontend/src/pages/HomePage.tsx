@@ -1,6 +1,6 @@
 import { TopBar } from '@/components/TopBar'
 import { AppCard } from '@/components/AppCard'
-import { Sparkles, Heart, Bot, ArrowRight, Star, Zap, BookOpen } from 'lucide-react'
+import { Sparkles, Heart, Bot, ArrowRight, Star, Zap } from 'lucide-react'
 
 const loveFeatures = [
   { icon: '💬', text: 'Multi-turn conversation with memory' },
@@ -14,13 +14,6 @@ const manusFeatures = [
   { icon: '📄', text: 'Scrape and summarize any web page' },
   { icon: '📑', text: 'Generate PDF reports with CJK support' },
   { icon: '🔧', text: 'Live tool-call visualization via SSE' },
-]
-
-const devlogFeatures = [
-  { icon: '📝', text: 'Architecture decision records (ADR)' },
-  { icon: '🧠', text: 'Technical deep-dives and learnings' },
-  { icon: '🚀', text: 'Feature development journey' },
-  { icon: '💡', text: 'Interview-ready concept explanations' },
 ]
 
 export default function HomePage() {
@@ -108,7 +101,7 @@ export default function HomePage() {
 
           {/* ── App Cards ────────────────────────────────────────────── */}
           <div
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 w-full max-w-5xl mb-12 animate-fade-in"
+              className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl mb-12 animate-fade-in"
               style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}
           >
             <AppCard
@@ -128,15 +121,6 @@ export default function HomePage() {
                 gradient="bg-gradient-to-br from-violet-600 via-violet-500 to-purple-600"
                 icon={<Bot size={26} className="text-white" />}
                 badge="Tool-Powered"
-            />
-            <AppCard
-                title="Dev Log"
-                description="A development journal documenting feature implementations, architecture decisions, and key learnings — built to demonstrate engineering depth and systematic thinking."
-                features={devlogFeatures}
-                to="/devlog"
-                gradient="bg-gradient-to-br from-emerald-600 via-teal-500 to-cyan-600"
-                icon={<BookOpen size={26} className="text-white" />}
-                badge="Live"
             />
           </div>
 

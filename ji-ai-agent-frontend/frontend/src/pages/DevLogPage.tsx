@@ -110,11 +110,13 @@ function DevLogCard({ entry, isFirst, isLast }: DevLogCardProps) {
             {/* ── Header row ── */}
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Date badge */}
-                <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-surface-500 dark:text-surface-400 bg-surface-100 dark:bg-surface-800 px-2.5 py-1 rounded-lg ring-1 ring-surface-200 dark:ring-surface-700">
-                  <CalendarDays size={11} />
-                  {entry.date}
-                </div>
+                {/* Date badge (completed entries only) */}
+                {entry.status === 'completed' && (
+                  <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-surface-500 dark:text-surface-400 bg-surface-100 dark:bg-surface-800 px-2.5 py-1 rounded-lg ring-1 ring-surface-200 dark:ring-surface-700">
+                    <CalendarDays size={11} />
+                    {entry.date}
+                  </div>
+                )}
                 {/* Category badge */}
                 <div className={clsx('flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg', cat.bg, cat.text, 'ring-1', cat.border)}>
                   {cat.icon}
@@ -152,17 +154,19 @@ function DevLogCard({ entry, isFirst, isLast }: DevLogCardProps) {
               ))}
             </div>
 
-            {/* ── Expand / Collapse ── */}
-            <button
-              onClick={() => setExpanded(x => !x)}
-              className={clsx(
-                'mt-4 flex items-center gap-1.5 text-sm font-medium transition-colors duration-150',
-                'text-primary hover:text-primary-600 dark:text-primary-400',
-              )}
-            >
-              {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-              {expanded ? 'Show less' : 'Read full entry'}
-            </button>
+            {/* ── Expand / Collapse (completed entries only) ── */}
+            {entry.status === 'completed' && (
+              <button
+                onClick={() => setExpanded(x => !x)}
+                className={clsx(
+                  'mt-4 flex items-center gap-1.5 text-sm font-medium transition-colors duration-150',
+                  'text-primary hover:text-primary-600 dark:text-primary-400',
+                )}
+              >
+                {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                {expanded ? 'Show less' : 'Read full entry'}
+              </button>
+            )}
 
             {/* ── Expanded sections ── */}
             <div className={clsx('overflow-hidden transition-all duration-300', expanded ? 'max-h-[9999px] mt-5' : 'max-h-0')}>
@@ -770,7 +774,7 @@ Memory systems are a hot topic in AI engineering interviews. This demonstrates:
   {
     id: 'agent-comm-protocol-20260429',
     date: '2026/04/29',
-    title: 'Agent间通信协议: JSON Messages over Async Message Queues',
+    title: 'Inter-Agent Communication Protocol: JSON Messages over Async Message Queues',
     category: 'architecture',
     difficulty: 'advanced',
     tags: ['multi-agent', 'async', 'message-queue', 'linkedblockingqueue', 'agent-protocol', 'json', 'inter-process-communication'],
@@ -911,7 +915,7 @@ public class MessageQueue {
     }
 }`,
     architectureDiagram: `┌─────────────────────────────────────────────────────────────┐
-│              Agent间通信协议                              │
+│          Inter-Agent Communication Protocol                    │
 │                                                         │
 │  ┌──────────────┐     REQUEST      ┌──────────────┐    │
 │  │  Supervisor  │ ─────────────────▶ │  Researcher │    │

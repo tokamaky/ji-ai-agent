@@ -216,7 +216,7 @@ public class AgentProfileRegistry {
                 .capabilities(List.of("orchestrate", "route", "coordinate", "aggregate", "supervise", "manage"))
                 .priority(10)
                 .active(true)
-                .tags("orchestration")
+                .tags(Set.of("orchestration"))
                 .build());
 
         register(AgentProfile.builder()
@@ -229,7 +229,7 @@ public class AgentProfileRegistry {
                 .timeoutSeconds(180)
                 .priority(7)
                 .active(true)
-                .tags("web", "research", "information")
+                .tags(Set.of("web", "research", "information"))
                 .build());
 
         register(AgentProfile.builder()
@@ -242,7 +242,7 @@ public class AgentProfileRegistry {
                 .timeoutSeconds(300)
                 .priority(7)
                 .active(true)
-                .tags("code", "development")
+                .tags(Set.of("code", "development"))
                 .build());
     }
 }

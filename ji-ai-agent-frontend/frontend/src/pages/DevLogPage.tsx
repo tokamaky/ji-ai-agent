@@ -435,7 +435,7 @@ When interviewers ask "tell me about a challenging technical problem you solved"
   // ─── Phase 2: Self-Reflection Mechanism ────────────────────────────────────
   {
     id: 'self-reflection-20260429',
-    date: '2026/04/29',
+    date: '2026/05/06',
     title: 'Self-Reflection: Closing the ReAct Loop with a Reflection Step',
     category: 'architecture',
     difficulty: 'advanced',

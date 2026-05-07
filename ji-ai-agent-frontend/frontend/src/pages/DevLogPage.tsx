@@ -578,7 +578,7 @@ This extends the classic ReAct pattern to its logical completion. Every senior M
 - **Cost awareness**: Using a cheaper model for SelfCritic shows production mindset — not every LLM call needs to use the flagship model.
 - **Systematic thinking**: The three-outcome model (proceed/retry/replan) is clean and extensible — interviewers appreciate well-designed state machines.
 - **Comparable to real systems**: This mirrors how AutoGPT, Reflexion, and Self-Refine papers handle error recovery.`,
-    status: 'planned',
+    status: 'completed',
     effortHours: 8,
   },
   // ─── Phase 2: Three-Tier Memory System ────────────────────────────────────

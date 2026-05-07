@@ -144,29 +144,4 @@ public class AgentProfile {
     public String getCapabilitiesSummary() {
         return capabilities == null ? "" : String.join(", ", capabilities);
     }
-
-    /**
-     * Builder subclass that provides sensible defaults.
-     */
-    public static class AgentProfileBuilder {
-        public AgentProfileBuilder tags(Set<String> tags) {
-            this.tags = tags;
-            return this;
-        }
-
-        public AgentProfileBuilder tags(String... tagArray) {
-            this.tags = Set.of(tagArray);
-            return this;
-        }
-
-        public AgentProfileBuilder capabilities(List<String> capabilities) {
-            this.capabilities = capabilities;
-            return this;
-        }
-
-        public AgentProfileBuilder capabilities(String... caps) {
-            this.capabilities = List.of(caps);
-            return this;
-        }
-    }
 }

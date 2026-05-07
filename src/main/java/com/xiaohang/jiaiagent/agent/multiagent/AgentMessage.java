@@ -60,20 +60,6 @@ public class AgentMessage {
         BROADCAST
     }
 
-    public AgentMessage(String id, MessageType type, String sender, String receiver,
-                       String content, Map<String, Object> payload, Instant timestamp,
-                       String correlationId, Map<String, String> metadata) {
-        this.id = id;
-        this.type = type;
-        this.sender = sender;
-        this.receiver = receiver;
-        this.content = content;
-        this.payload = payload;
-        this.timestamp = timestamp;
-        this.correlationId = correlationId;
-        this.metadata = metadata;
-    }
-
     /**
      * Creates a new REQUEST message from {@code sender} to {@code receiver}.
      */
@@ -176,20 +162,5 @@ public class AgentMessage {
      */
     public boolean isDirected() {
         return receiver != null && !receiver.isBlank();
-    }
-
-    /**
-     * Builder subclass with fluent setters for convenience.
-     */
-    public static class AgentMessageBuilder {
-        public AgentMessageBuilder payload(Map<String, Object> payload) {
-            this.payload = payload;
-            return this;
-        }
-
-        public AgentMessageBuilder metadata(Map<String, String> metadata) {
-            this.metadata = metadata;
-            return this;
-        }
     }
 }

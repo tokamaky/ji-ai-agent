@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Data
 @Slf4j
+// Force rebuild to pick up latest source changes
 public abstract class BaseAgent {
 
     // 核心属性

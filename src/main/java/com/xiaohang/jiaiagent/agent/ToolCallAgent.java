@@ -27,8 +27,11 @@ import java.util.stream.Collectors;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-@Slf4j
 public class ToolCallAgent extends ReActAgent {
+
+    // ToolCallAgent keeps its own logger (no @Slf4j to avoid shadowing log field)
+    protected static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(ToolCallAgent.class);
 
     // 可用的工具
     private final ToolCallback[] availableTools;

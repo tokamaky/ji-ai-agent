@@ -3,7 +3,6 @@ package com.xiaohang.jiaiagent.agent;
 import com.xiaohang.jiaiagent.agent.model.AgentState;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.Message;
 
 import java.util.List;
@@ -14,8 +13,11 @@ import java.util.List;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-@Slf4j
 public abstract class ReActAgent extends BaseAgent {
+
+    // ReActAgent keeps its own logger (no @Slf4j to avoid shadowing parent's log field)
+    protected static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(ReActAgent.class);
 
     /**
      * 处理当前状态并决定下一步行动

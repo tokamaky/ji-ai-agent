@@ -1,9 +1,11 @@
 package com.xiaohang.jiaiagent.controller;
 
 import com.xiaohang.jiaiagent.agent.JiManus;
+import com.xiaohang.jiaiagent.agent.multiagent.AgentProfileRegistry;
+import com.xiaohang.jiaiagent.agent.multiagent.AgentRegistry;
+import com.xiaohang.jiaiagent.agent.multiagent.SupervisorAgent;
 import com.xiaohang.jiaiagent.app.LoveApp;
 import jakarta.annotation.Resource;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
@@ -26,6 +28,15 @@ public class AiController {
 
     @Resource
     private ObjectProvider<JiManus> jiManusProvider;
+
+    @Resource
+    private SupervisorAgent supervisorAgent;
+
+    @Resource
+    private AgentRegistry agentRegistry;
+
+    @Resource
+    private AgentProfileRegistry agentProfileRegistry;
 
     /**
      * 同步调用 AI 恋爱大师应用
@@ -100,5 +111,46 @@ public class AiController {
     public SseEmitter doChatWithManus(String message) {
         JiManus jiManus = jiManusProvider.getObject();
         return jiManus.runStream(message);
+    }
+
+    /**
+     * Multi-Agent Supervisor endpoint.
+     * Routes complex tasks to specialist sub-agents (researcher / coder)
+     * which execute in parallel, then aggregates and streams results via SSE.
+     *
+     * @param message the user's task
+     * @param language optional language hint ("zh" / "en"), defaults to auto-detect
+     */
+    @GetMapping("/supervisor/chat")
+    public SseEmitter doChatWithSupervisor(String message,
+                                          @jakarta.annotation.Nullable String language) {
+        String lang = (language != null && !language.isBlank()) ? language : "auto";
+        return supervisorAgent.handle(message, lang);
+    }
+
+    /**
+     * Returns the current list of registered agents and their profiles.
+     * Useful for debugging and monitoring the multi-agent system.
+     */
+    @GetMapping("/supervisor/agents")
+    public java.util.Map<String, Object> getRegisteredAgents() {
+        return java.util.Map.of(
+                "agentCount", agentRegistry.getAgentCount(),
+                "agents", agentRegistry.getAllAgents().stream()
+                        .map(a -> java.util.Map.of(
+                                "name", a.getName(),
+                                "type", a.getClass().getSimpleName()
+                        ))
+                        .toList(),
+                "profiles", agentProfileRegistry.getActive().stream()
+                        .map(p -> java.util.Map.of(
+                                "name", p.getName(),
+                                "displayName", p.getDisplayName(),
+                                "description", p.getDescription(),
+                                "capabilities", p.getCapabilitiesSummary(),
+                                "active", p.isActive()
+                        ))
+                        .toList()
+        );
     }
 }
